@@ -256,9 +256,10 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
     """
     Fetch Japan Government Bond (JGB) yield curve data.
     Sources tried in order:
-      1. FRED public CSV (direct HTTP, no API key) — monthly, most reliable on cloud
-      2. Stooq via pandas_datareader — daily, all tenors
+      1. FRED public CSV via pd.read_csv (no API key)
+      2. Stooq via pandas_datareader
       3. Static fallback
+    History fallback: 1482.T ETF price inverted as yield proxy (yfinance, always works).
     Returns: (current_yields dict, history_10y Series|None, source_label str)
     """
     import io
@@ -266,59 +267,97 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
     from datetime import datetime, timedelta
 
     two_years_ago = datetime.now() - timedelta(days=730)
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; GlobalMarketsDashboard/1.0)"}
+    approx_base   = {"3M": 0.10, "2Y": 0.40, "5Y": 0.80, "10Y": 1.50, "20Y": 2.10, "30Y": 2.30}
 
-    # ── 1. FRED public CSV (no API key, reliable from cloud) ─────────────────
-    # Direct CSV download — e.g. https://fred.stlouisfed.org/graph/fredgraph.csv?id=IRLTLT01JPM156N
+    def _fill_curve(yields: dict) -> dict:
+        """Fill missing tenors by scaling from 10Y anchor."""
+        anchor = yields.get("10Y", approx_base["10Y"])
+        scale  = anchor / approx_base["10Y"] if approx_base["10Y"] > 0 else 1.0
+        for k, v in approx_base.items():
+            if k not in yields:
+                yields[k] = round(v * scale, 3)
+        return yields
+
+    def _etf_yield_proxy(anchor_yield: float) -> "pd.Series | None":
+        """
+        Construct approximate 10Y JGB yield history from 1482.T ETF price.
+        Uses inverse price-yield relationship:  yield(t) ≈ anchor × latest_price / price(t)
+        yfinance always works on Streamlit Cloud — use as last resort for history.
+        """
+        try:
+            hist = get_history("1482.T", "1y")
+            if hist is None or hist.empty:
+                return None
+            prices = hist["Close"].dropna()
+            if len(prices) < 5:
+                return None
+            latest_price = float(prices.iloc[-1])
+            proxy = (anchor_yield * latest_price / prices).rename("Yield")
+            # Sanity check: keep only values in realistic JGB range
+            proxy = proxy[(proxy > 0) & (proxy < 5)]
+            return proxy if not proxy.empty else None
+        except Exception:
+            return None
+
+    yields: dict = {}
+    hist10 = None
+
+    # ── 1a. FRED via pd.read_csv (simplest, pandas handles HTTP) ─────────────
     fred_map = {
         "3M":  "IR3TBB01JPM156N",
         "10Y": "IRLTLT01JPM156N",
     }
-    yields: dict = {}
-    hist10 = None
-
     for tenor, series_id in fred_map.items():
         try:
             url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-            resp = _req.get(url, headers=headers, timeout=15)
-            if resp.status_code == 200 and "DATE" in resp.text[:100]:
-                df = pd.read_csv(io.StringIO(resp.text))
-                df.columns = ["Date", "Value"]
-                df["Date"] = pd.to_datetime(df["Date"])
-                df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
-                df = df.dropna(subset=["Value"]).set_index("Date").sort_index()
-                if not df.empty:
-                    v = float(df["Value"].iloc[-1])
-                    yields[tenor] = v
-                    if tenor == "10Y":
-                        hist10 = df["Value"][df.index >= pd.Timestamp(two_years_ago)]
+            df = pd.read_csv(url, na_values=".")
+            df.columns = ["Date", "Value"]
+            df["Date"]  = pd.to_datetime(df["Date"])
+            df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
+            df = df.dropna(subset=["Value"]).set_index("Date").sort_index()
+            if not df.empty:
+                yields[tenor] = float(df["Value"].iloc[-1])
+                if tenor == "10Y":
+                    hist10 = df["Value"][df.index >= pd.Timestamp(two_years_ago)]
+                    if hist10.empty:
+                        hist10 = None
         except Exception:
             continue
 
-    if len(yields) >= 1:
-        # Scale remaining tenors proportionally to the live 10Y anchor
-        approx = {"3M": 0.10, "2Y": 0.40, "5Y": 0.80, "10Y": 1.50, "20Y": 2.10, "30Y": 2.30}
-        if "10Y" in yields and approx["10Y"] > 0:
-            scale = yields["10Y"] / approx["10Y"]
-            for k, v in approx.items():
-                if k not in yields:
-                    yields[k] = round(v * scale, 3)
-        else:
-            for k, v in approx.items():
-                if k not in yields:
-                    yields[k] = v
-        return yields, hist10, "FRED (monthly, St. Louis Fed)"
+    # ── 1b. FRED via requests if pd.read_csv failed ───────────────────────────
+    if not yields:
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; GlobalMarketsDashboard/1.0)"}
+        for tenor, series_id in fred_map.items():
+            try:
+                url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+                resp = _req.get(url, headers=headers, timeout=20)
+                if resp.status_code == 200:
+                    df = pd.read_csv(io.StringIO(resp.text), na_values=".")
+                    df.columns = ["Date", "Value"]
+                    df["Date"]  = pd.to_datetime(df["Date"])
+                    df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
+                    df = df.dropna(subset=["Value"]).set_index("Date").sort_index()
+                    if not df.empty:
+                        yields[tenor] = float(df["Value"].iloc[-1])
+                        if tenor == "10Y":
+                            hist10 = df["Value"][df.index >= pd.Timestamp(two_years_ago)]
+                            if hist10.empty:
+                                hist10 = None
+            except Exception:
+                continue
 
-    # ── 2. Stooq via pandas_datareader (daily, multiple tenors) ──────────────
+    if len(yields) >= 1:
+        _fill_curve(yields)
+        # If FRED gave snapshot but no history, build proxy from 1482.T
+        if hist10 is None:
+            hist10 = _etf_yield_proxy(yields.get("10Y", approx_base["10Y"]))
+        src = "FRED (monthly)" if hist10 is None or "Yield" not in getattr(hist10, "name", "") else "FRED + 1482.T proxy"
+        return yields, hist10, src
+
+    # ── 2. Stooq via pandas_datareader ────────────────────────────────────────
     end_dt   = datetime.now()
     start_dt = end_dt - timedelta(days=400)
-    stooq_syms = {
-        "2Y":  "jp2y.b",
-        "5Y":  "jp5y.b",
-        "10Y": "jp10y.b",
-        "20Y": "jp20y.b",
-        "30Y": "jp30y.b",
-    }
+    stooq_syms = {"2Y": "jp2y.b", "5Y": "jp5y.b", "10Y": "jp10y.b", "20Y": "jp20y.b", "30Y": "jp30y.b"}
     try:
         import pandas_datareader.data as web
         sq_yields: dict = {}
@@ -341,12 +380,10 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
     except Exception:
         pass
 
-    # ── 3. Static fallback (BOJ-published curve, approx early 2025) ──────────
-    return (
-        {"3M": 0.10, "2Y": 0.40, "5Y": 0.80, "10Y": 1.50, "20Y": 2.10, "30Y": 2.30},
-        None,
-        "Static (BOJ approx — live data unavailable)",
-    )
+    # ── 3. Static fallback — yield curve from BOJ approx, history from 1482.T ─
+    anchor = approx_base["10Y"]
+    hist10 = _etf_yield_proxy(anchor)
+    return approx_base.copy(), hist10, "Static (BOJ approx)"
 
 
 @st.cache_data(ttl=600, show_spinner=False)

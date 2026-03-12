@@ -1004,7 +1004,9 @@ with tabs[2]:
                 stat_card(f"JGB {tenor}", f"{jp_yields[tenor]:.3f}%")
 
         # ── 10Y JGB historical chart ──────────────────────────────────────────
-        section("JGB 10Y Yield — Historical")
+        is_proxy = jp_hist10 is not None and getattr(jp_hist10, "name", "") == "Yield"
+        hist_title = "JGB 10Y Yield — Historical" + (" (estimated via 1482.T ETF)" if is_proxy else "")
+        section(hist_title)
         if jp_hist10 is not None and not jp_hist10.empty:
             jh_df = jp_hist10.reset_index()
             jh_df.columns = ["Date", "Yield"]
@@ -1018,8 +1020,8 @@ with tabs[2]:
             ly10["yaxis"]["ticksuffix"] = "%"
             fig_j10.update_layout(**ly10)
             st.plotly_chart(fig_j10, use_container_width=True, key="jp_10y_hist")
-        else:
-            st.info("Historical JGB yield series unavailable from Stooq/FRED. Yield curve snapshot shown above.")
+            if is_proxy:
+                st.caption("Estimated from 1482.T ETF price using inverse price-yield relationship. Directional trend is accurate; basis points are approximate.")
 
         # ── US vs Japan 10Y comparison ────────────────────────────────────────
         section("US vs Japan — 10Y Yield Comparison (3 Month)")
