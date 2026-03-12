@@ -140,23 +140,50 @@ def get_multi_history(
 @st.cache_data(ttl=300, show_spinner=False)
 def get_etf_info(ticker: str) -> dict:
     """Fetch ETF metadata: AUM, expense ratio, etc."""
+    total_assets = None
+    expense_ratio = None
+    category = ""
+    fund_family = ""
+
     try:
         t = yf.Ticker(ticker)
+        # Primary: .info (works locally; may return empty dict on cloud IPs)
         info = t.info
-        # totalAssets is primary; netAssets is fallback (both represent AUM)
         total_assets = info.get("totalAssets") or info.get("netAssets")
         expense_ratio = info.get("netExpenseRatio") or info.get("annualReportExpenseRatio")
-        return {
-            "total_assets": total_assets,
-            "expense_ratio": expense_ratio,
-            "shares_outstanding": info.get("sharesOutstanding"),
-            "avg_volume": info.get("averageVolume"),
-            "avg_volume_10d": info.get("averageVolume10days"),
-            "category": info.get("category", ""),
-            "fund_family": info.get("fundFamily", ""),
-        }
+        category = info.get("category", "")
+        fund_family = info.get("fundFamily", "")
     except Exception:
-        return {}
+        pass
+
+    # Fallback: funds_data.fund_operations (different Yahoo endpoint, more resilient)
+    if total_assets is None or expense_ratio is None:
+        try:
+            t = yf.Ticker(ticker)
+            fo = t.funds_data.fund_operations
+            if ticker in fo.columns:
+                if total_assets is None:
+                    raw = fo.loc["Total Net Assets", ticker]
+                    if raw and not np.isnan(float(raw)):
+                        # fund_operations returns value in millions of USD
+                        total_assets = float(raw) * 1_000_000
+                if expense_ratio is None:
+                    raw_er = fo.loc["Annual Report Expense Ratio", ticker]
+                    if raw_er and not np.isnan(float(raw_er)):
+                        expense_ratio = float(raw_er)
+            if not fund_family:
+                fo2 = t.funds_data.fund_overview
+                fund_family = fo2.get("family", "")
+                category = fo2.get("categoryName", "")
+        except Exception:
+            pass
+
+    return {
+        "total_assets": total_assets,
+        "expense_ratio": expense_ratio,
+        "category": category,
+        "fund_family": fund_family,
+    }
 
 
 @st.cache_data(ttl=600, show_spinner=False)

@@ -1038,15 +1038,15 @@ with tabs[3]:
                         fig = line_chart(h, title=name, color=color, height=200)
                         if fig: st.plotly_chart(fig, use_container_width=True)
 
-            # Relevant ETFs per category
+            # Relevant ETFs per category — {name: ticker} format for get_performance_summary
             _COMM_ETF_MAP = {
-                "Energy":         {"USO": "US Oil Fund", "UNG": "US Natural Gas Fund",
-                                   "PDBC": "Invesco Commodity", "GSG": "iShares Commodity"},
-                "Precious Metals": {"GLD": "SPDR Gold Shares", "SLV": "iShares Silver Trust",
-                                    "GDX": "Gold Miners ETF", "GDXJ": "Junior Gold Miners"},
-                "Base Metals":    {"CPER": "US Copper Index", "PDBC": "Invesco Commodity"},
-                "Agricultural":   {"PDBC": "Invesco Commodity", "GSG": "iShares Commodity"},
-                "Softs":          {"PDBC": "Invesco Commodity", "GSG": "iShares Commodity"},
+                "Energy":         {"US Oil Fund": "USO", "US Natural Gas Fund": "UNG",
+                                   "Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
+                "Precious Metals": {"SPDR Gold Shares": "GLD", "iShares Silver Trust": "SLV",
+                                    "Gold Miners ETF": "GDX", "Junior Gold Miners": "GDXJ"},
+                "Base Metals":    {"US Copper Index": "CPER", "Invesco Commodity": "PDBC"},
+                "Agricultural":   {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
+                "Softs":          {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
             }
             etf_map_c = _COMM_ETF_MAP.get(cat)
             if etf_map_c:
