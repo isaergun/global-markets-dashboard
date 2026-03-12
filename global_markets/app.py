@@ -1342,19 +1342,17 @@ with tabs[5]:
     section("Crypto Markets")
     crypto_live_cards(sel_sym, CRYPTO)
 
-    # Coin selector — one button per coin, aligned with cards above
-    cr_cols = st.columns(4)
-    for i, (name, sym) in enumerate(CRYPTO.items()):
-        with cr_cols[i % 4]:
-            label = f"● {name}" if sel_sym == sym else name
-            if st.button(label, key=f"cr_sel_{sym}", use_container_width=True):
-                st.session_state["crypto_chart_sym"] = sym
-                st.rerun()
+    _dd_col, _ = st.columns([1, 3])
+    with _dd_col:
+        _names = list(CRYPTO.keys())
+        _sel_name = next((n for n, s in CRYPTO.items() if s == sel_sym), "Bitcoin")
+        _choice = st.selectbox("Chart", _names,
+                               index=_names.index(_sel_name),
+                               key="cr_dd", label_visibility="collapsed")
+        if CRYPTO[_choice] != sel_sym:
+            st.session_state["crypto_chart_sym"] = CRYPTO[_choice]
+            st.rerun()
 
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-
-    sel_name = next((n for n, s in CRYPTO.items() if s == sel_sym), "Bitcoin")
-    section(sel_name)
     tv_chart(sel_sym, height=440, interval="D")
 
     # ── Bitcoin & Ethereum Spot ETFs ──────────────────────────────────────────
