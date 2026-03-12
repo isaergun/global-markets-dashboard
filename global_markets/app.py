@@ -1335,28 +1335,27 @@ with tabs[4]:
 # TAB 6 — CRYPTO
 # ══════════════════════════════════════════════════════════════════════════════
 with tabs[5]:
-    # Selected coin: prefer query param (set by card click), fall back to session state
-    _qp = st.query_params.get("crypto", "")
-    if _qp in CRYPTO.values():
-        sel_sym = _qp
-        st.session_state["crypto_chart_sym"] = _qp
-    else:
-        sel_sym = st.session_state.get("crypto_chart_sym", "BTC-USD")
+    if "crypto_chart_sym" not in st.session_state:
+        st.session_state["crypto_chart_sym"] = "BTC-USD"
+    sel_sym = st.session_state["crypto_chart_sym"]
 
     section("Crypto Markets")
     crypto_live_cards(sel_sym, CRYPTO)
 
-    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    # Coin selector — one button per coin, aligned with cards above
+    cr_cols = st.columns(4)
+    for i, (name, sym) in enumerate(CRYPTO.items()):
+        with cr_cols[i % 4]:
+            label = f"● {name}" if sel_sym == sym else name
+            if st.button(label, key=f"cr_sel_{sym}", use_container_width=True):
+                st.session_state["crypto_chart_sym"] = sym
+                st.rerun()
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     sel_name = next((n for n, s in CRYPTO.items() if s == sel_sym), "Bitcoin")
     section(sel_name)
     tv_chart(sel_sym, height=440, interval="D")
-
-    section("Crypto Performance Table")
-    df_cr = get_performance_summary(CRYPTO)
-    if not df_cr.empty:
-        show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %","Volume"] if c in df_cr.columns]
-        st.dataframe(style_df(df_cr[show]), use_container_width=True, hide_index=True)
 
     # ── Bitcoin & Ethereum Spot ETFs ──────────────────────────────────────────
     cr_etf_tabs = st.tabs(["₿ Bitcoin ETFs", "Ξ Ethereum ETFs"])
