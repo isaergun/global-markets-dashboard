@@ -1281,6 +1281,10 @@ with tabs[4]:
     fx_tabs = st.tabs(["Majors", "Emerging Markets", "📊 FX Heatmap"])
 
     for fi, (cat, items) in enumerate(CURRENCIES.items()):
+        _sk = f"fx_chart_{fi}"
+        if _sk not in st.session_state:
+            st.session_state[_sk] = list(items.values())[0]
+
         with fx_tabs[fi]:
             section(cat)
             fq = get_bulk_quotes(list(items.values()))
@@ -1292,18 +1296,22 @@ with tabs[4]:
                     stat_card(name, fmt_price(q["price"], dec) if q else "—",
                               q.get("pct_change") if q else None)
 
-            df_fx = get_performance_summary(items)
-            if not df_fx.empty:
-                show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_fx.columns]
-                st.dataframe(style_df(df_fx[show]), use_container_width=True, hide_index=True)
+            _dd_col, _ = st.columns([1, 3])
+            with _dd_col:
+                _fx_names = list(items.keys())
+                _fx_sel   = next((n for n, s in items.items()
+                                  if s == st.session_state[_sk]), _fx_names[0])
+                _fx_pick  = st.selectbox("Chart", _fx_names,
+                                         index=_fx_names.index(_fx_sel),
+                                         key=f"fx_dd_{fi}",
+                                         label_visibility="collapsed")
+                if items[_fx_pick] != st.session_state[_sk]:
+                    st.session_state[_sk] = items[_fx_pick]
+                    st.rerun()
 
-            # TradingView charts for FX pairs (2 columns)
-            fx_syms = [s for s in items.values() if s in _TV_SYM]
-            if fx_syms:
-                ch_cols = st.columns(min(2, len(fx_syms)))
-                for ci, sym in enumerate(fx_syms[:4]):
-                    with ch_cols[ci % 2]:
-                        tv_chart(sym, height=300, interval="D", style="2")
+            _chart_sym = st.session_state[_sk]
+            if _chart_sym in _TV_SYM:
+                tv_chart(_chart_sym, height=420, interval="D", style="2")
 
     with fx_tabs[-1]:
         section("FX vs USD — 1D % Change")
