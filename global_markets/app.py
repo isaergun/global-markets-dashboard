@@ -346,7 +346,7 @@ _TV_SYM = {
     "USDMXN=X": "FX_IDC:USDMXN","USDKRW=X": "FX_IDC:USDKRW",
     "USDZAR=X": "FX_IDC:USDZAR","USDRUB=X": "FX_IDC:USDRUB",
     # DXY
-    "DX-Y.NYB": "TVC:DXY",
+    "DX-Y.NYB": "CAPITALCOM:DXY",
     # ETFs (select common ones)
     "SPY": "AMEX:SPY",   "QQQ": "NASDAQ:QQQ",  "IWM": "AMEX:IWM",
     "GLD": "AMEX:GLD",   "SLV": "AMEX:SLV",    "USO": "AMEX:USO",
@@ -1335,8 +1335,6 @@ with tabs[4]:
             fig_fxh.update_layout(**layout_fxh)
             st.plotly_chart(fig_fxh, use_container_width=True)
 
-    section("DXY Dollar Index")
-    tv_chart("DX-Y.NYB", height=360, interval="D", style="2")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
