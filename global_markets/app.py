@@ -577,7 +577,7 @@ with st.spinner(""):
 st.markdown("""
 <div style="font-size:10px;color:#2d3142;text-transform:uppercase;letter-spacing:0.12em;
             margin-bottom:8px;font-weight:600;">
-  📊 &nbsp; Anlık Piyasa Özeti
+  📊 &nbsp; Market Snapshot
 </div>
 """, unsafe_allow_html=True)
 
@@ -593,7 +593,7 @@ for i, (label, (sym, dec)) in enumerate(HERO.items()):
 st.markdown("""
 <div style="margin:20px 0 4px;font-size:10px;color:#2d3142;text-transform:uppercase;
             letter-spacing:0.12em;font-weight:600;">
-  🗂 &nbsp; Bölümler — aşağıdan sekmeye tıklayın
+  🗂 &nbsp; Sections — click a tab below
 </div>
 """, unsafe_allow_html=True)
 
@@ -680,6 +680,28 @@ with tabs[0]:
                 show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_perf.columns]
                 st.dataframe(style_df(df_perf[show]), use_container_width=True, hide_index=True)
 
+    # ── Equity ETF Performance ───────────────────────────────────────────────
+    section("Equity ETF Performance")
+    eq_etf_tabs = st.tabs(["US Equity", "International", "Thematic"])
+    with eq_etf_tabs[0]:
+        us_etf_map = {v["name"]: k for k, v in ETF_UNIVERSE["US Equity"].items()}
+        df_us_etf = get_performance_summary(us_etf_map)
+        if not df_us_etf.empty:
+            show_eq = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_us_etf.columns]
+            st.dataframe(style_df(df_us_etf[show_eq]), use_container_width=True, hide_index=True)
+    with eq_etf_tabs[1]:
+        intl_etf_map = {v["name"]: k for k, v in ETF_UNIVERSE["International"].items()}
+        df_intl_etf = get_performance_summary(intl_etf_map)
+        if not df_intl_etf.empty:
+            show_eq = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_intl_etf.columns]
+            st.dataframe(style_df(df_intl_etf[show_eq]), use_container_width=True, hide_index=True)
+    with eq_etf_tabs[2]:
+        theme_etf_map = {v["name"]: k for k, v in ETF_UNIVERSE["Thematic"].items()}
+        df_theme_etf = get_performance_summary(theme_etf_map)
+        if not df_theme_etf.empty:
+            show_eq = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_theme_etf.columns]
+            st.dataframe(style_df(df_theme_etf[show_eq]), use_container_width=True, hide_index=True)
+
     # ── Sector rotation ──────────────────────────────────────────────────────
     section("S&P 500 Sector Rotation")
     SECTOR_MAP = {v["name"]: k for k, v in ETF_UNIVERSE["Sector"].items()}
@@ -719,7 +741,7 @@ with tabs[1]:
         "</p>", unsafe_allow_html=True,
     )
 
-    etf_cat = st.selectbox("Kategori", list(ETF_UNIVERSE.keys()), key="etf_cat",
+    etf_cat = st.selectbox("Category", list(ETF_UNIVERSE.keys()), key="etf_cat",
                             label_visibility="collapsed")
     tickers  = list(ETF_UNIVERSE[etf_cat].keys())
     etf_names = {t: ETF_UNIVERSE[etf_cat][t]["name"] for t in tickers}
@@ -809,7 +831,7 @@ with tabs[1]:
             st.plotly_chart(fig_rv, use_container_width=True)
 
         # ── Full table ─────────────────────────────────────────────────────
-        section("Tüm ETF Tablosu")
+        section("Full ETF Table")
         show_cols = [c for c in ["Ticker","Name","Price","1D %","5D %","1M %",
                                   "YTD %","Rel. Vol.","Flow 5D","Flow 1M","AUM"] if c in df_etf.columns]
         st.dataframe(style_df(df_etf[show_cols]), use_container_width=True, hide_index=True)
@@ -867,70 +889,121 @@ with tabs[1]:
 # TAB 3 — FIXED INCOME
 # ══════════════════════════════════════════════════════════════════════════════
 with tabs[2]:
-    section("US Treasury Yield Curve")
-    yc_data = get_yield_curve()
-    yld_q   = get_bulk_quotes(list(YIELD_SYMBOLS.values()))
+    fi_tabs = st.tabs(["🇺🇸 United States", "🇯🇵 Japan"])
 
-    col_yc, col_yd = st.columns([3, 2])
-    with col_yc:
-        if yc_data is not None:
-            fig_yc = go.Figure()
-            fig_yc.add_trace(go.Scatter(
-                x=yc_data["maturity"], y=yc_data["yield"],
-                mode="lines+markers",
-                line=dict(color=PALETTE[0], width=2.5),
-                marker=dict(size=9, color=PALETTE[0],
-                            line=dict(color="#f4f5f7", width=2)),
-                fill="tozeroy", fillcolor="rgba(74,144,226,0.07)",
-                hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
-            ))
-            layout_yc = base_layout(280)
-            layout_yc["yaxis"]["ticksuffix"] = "%"
-            layout_yc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
-            fig_yc.update_layout(**layout_yc)
-            st.plotly_chart(fig_yc, use_container_width=True)
+    # ── US Fixed Income ──────────────────────────────────────────────────────
+    with fi_tabs[0]:
+        section("US Treasury Yield Curve")
+        yc_data = get_yield_curve()
+        yld_q   = get_bulk_quotes(list(YIELD_SYMBOLS.values()))
 
-    with col_yd:
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-        for label, sym in YIELD_SYMBOLS.items():
-            q = yld_q.get(sym)
-            stat_card(label, f"{q['price']:.3f}%" if q else "—",
-                      q.get("pct_change") if q else None)
+        col_yc, col_yd = st.columns([3, 2])
+        with col_yc:
+            if yc_data is not None:
+                fig_yc = go.Figure()
+                fig_yc.add_trace(go.Scatter(
+                    x=yc_data["maturity"], y=yc_data["yield"],
+                    mode="lines+markers",
+                    line=dict(color=PALETTE[0], width=2.5),
+                    marker=dict(size=9, color=PALETTE[0],
+                                line=dict(color="#f4f5f7", width=2)),
+                    fill="tozeroy", fillcolor="rgba(74,144,226,0.07)",
+                    hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
+                ))
+                layout_yc = base_layout(280)
+                layout_yc["yaxis"]["ticksuffix"] = "%"
+                layout_yc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
+                fig_yc.update_layout(**layout_yc)
+                st.plotly_chart(fig_yc, use_container_width=True)
+
+        with col_yd:
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            for label, sym in YIELD_SYMBOLS.items():
+                q = yld_q.get(sym)
+                stat_card(label, f"{q['price']:.3f}%" if q else "—",
+                          q.get("pct_change") if q else None)
+
+        section("10-Year Treasury — 3 Month")
+        tnx = get_history("^TNX", "3mo")
+        fig_tnx = line_chart(tnx, title="US 10Y Yield (%)", color=PALETTE[0], height=240, yformat="%")
+        if fig_tnx: st.plotly_chart(fig_tnx, use_container_width=True)
+
+        section("Yield Spread: 10Y – 5Y (Inversion Watch)")
+        fvx = get_history("^FVX","3mo")
+        tnx2 = get_history("^TNX","3mo")
+        if fvx is not None and tnx2 is not None:
+            spread = (tnx2["Close"] - fvx["Close"]).dropna()
+            sdf = spread.reset_index(); sdf.columns = ["Date","Spread"]
+            sc = ["#16a34a" if v >= 0 else "#dc2626" for v in sdf["Spread"]]
+            fig_sp = go.Figure(go.Bar(x=sdf["Date"], y=sdf["Spread"],
+                                       marker=dict(color=sc, opacity=0.8, line=dict(width=0))))
+            fig_sp.add_hline(y=0, line_dash="dot", line_color="#2d3142", opacity=0.8)
+            layout_sp = base_layout(200, dict(l=4,r=4,t=4,b=4))
+            layout_sp["yaxis"]["ticksuffix"] = "%"
+            fig_sp.update_layout(**layout_sp)
+            st.plotly_chart(fig_sp, use_container_width=True)
+
+        section("Bond ETF Performance")
+        bond_map = {v["name"]: k for k, v in ETF_UNIVERSE["Fixed Income"].items()}
+        df_bonds = get_performance_summary(bond_map)
+        if not df_bonds.empty:
+            show = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_bonds.columns]
+            st.dataframe(style_df(df_bonds[show]), use_container_width=True, hide_index=True)
+
+    # ── Japan Fixed Income ───────────────────────────────────────────────────
+    with fi_tabs[1]:
+        section("Bank of Japan — Key Rates")
+        boj_c1, boj_c2, boj_c3 = st.columns(3)
+        # BOJ Policy Rate (short-term) — updated manually; BOJ data not on Yahoo Finance
+        with boj_c1: stat_card("BOJ Policy Rate", "0.50%")
+        with boj_c2: stat_card("10Y JGB Target", "~1.50% (flexible)")
+        with boj_c3: stat_card("Data Source", "BOJ (static)")
         st.markdown(
-            "<p style='font-size:10px;color:#9ca3af;margin-top:8px'>"
-            "⚠ JP 10Y JGB yield not available via Yahoo Finance. "
-            "Japan Gov Bond ETF (1482.T) shown in Bond ETF Performance below."
+            "<p style='font-size:10px;color:#9ca3af;margin:4px 0 16px'>"
+            "⚠ Live JGB yield data is not available via Yahoo Finance. "
+            "The chart below shows the iShares Japan Government Bond ETF (1482.T, TSE) "
+            "as a price proxy — bond prices move inversely to yields."
             "</p>", unsafe_allow_html=True,
         )
 
-    # 10Y history
-    section("10-Year Treasury — 3 Month")
-    tnx = get_history("^TNX", "3mo")
-    fig_tnx = line_chart(tnx, title="US 10Y Yield (%)", color=PALETTE[0], height=240, yformat="%")
-    if fig_tnx: st.plotly_chart(fig_tnx, use_container_width=True)
+        section("iShares Japan Govt Bond ETF (1482.T) — Price History")
+        jgb_q  = get_quote("1482.T")
+        jgb_h  = get_history("1482.T", "3mo")
 
-    # Spread
-    section("Yield Spread: 10Y – 5Y (Inversion Watch)")
-    fvx = get_history("^FVX","3mo")
-    tnx2 = get_history("^TNX","3mo")
-    if fvx is not None and tnx2 is not None:
-        spread = (tnx2["Close"] - fvx["Close"]).dropna()
-        sdf = spread.reset_index(); sdf.columns = ["Date","Spread"]
-        sc = ["#16a34a" if v >= 0 else "#dc2626" for v in sdf["Spread"]]
-        fig_sp = go.Figure(go.Bar(x=sdf["Date"], y=sdf["Spread"],
-                                   marker=dict(color=sc, opacity=0.8, line=dict(width=0))))
-        fig_sp.add_hline(y=0, line_dash="dot", line_color="#2d3142", opacity=0.8)
-        layout_sp = base_layout(200, dict(l=4,r=4,t=4,b=4))
-        layout_sp["yaxis"]["ticksuffix"] = "%"
-        fig_sp.update_layout(**layout_sp)
-        st.plotly_chart(fig_sp, use_container_width=True)
+        col_jq, col_jc = st.columns([1, 3])
+        with col_jq:
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            if jgb_q:
+                stat_card("1482.T Price (JPY)", f"¥{jgb_q['price']:,.0f}", jgb_q.get("pct_change"))
+                stat_card("1D Change", fmt_pct(jgb_q.get("pct_change")))
+                stat_card("Prev Close", f"¥{jgb_q.get('prev_close',0):,.0f}")
+            else:
+                stat_card("1482.T", "—")
+        with col_jq:
+            st.markdown(
+                "<p style='font-size:10px;color:#9ca3af;margin-top:12px'>"
+                "Price ↑ = yields ↓ (dovish)<br>Price ↓ = yields ↑ (hawkish)"
+                "</p>", unsafe_allow_html=True,
+            )
+        with col_jc:
+            jgb_color = "#16a34a" if (jgb_q or {}).get("pct_change", 0) >= 0 else "#dc2626"
+            fig_jgb = line_chart(jgb_h, title="1482.T — Japan Govt Bond ETF (JPY)", color=jgb_color, height=260)
+            if fig_jgb: st.plotly_chart(fig_jgb, use_container_width=True)
 
-    section("Bond ETF Performance")
-    bond_map = {v["name"]: k for k, v in ETF_UNIVERSE["Fixed Income"].items()}
-    df_bonds = get_performance_summary(bond_map)
-    if not df_bonds.empty:
-        show = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_bonds.columns]
-        st.dataframe(style_df(df_bonds[show]), use_container_width=True, hide_index=True)
+        section("Japanese Yen (USD/JPY) — 3 Month")
+        usdjpy_h = get_history("USDJPY=X", "3mo")
+        usdjpy_q = get_quote("USDJPY=X")
+        col_fy1, col_fy2 = st.columns([1, 3])
+        with col_fy1:
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            if usdjpy_q:
+                stat_card("USD/JPY", fmt_price(usdjpy_q["price"], 2), usdjpy_q.get("pct_change"))
+            else:
+                stat_card("USD/JPY", "—")
+        with col_fy2:
+            fy_color = "#dc2626" if (usdjpy_q or {}).get("pct_change", 0) >= 0 else "#16a34a"
+            fig_fy = line_chart(usdjpy_h, title="USD/JPY (rising = JPY weakening)", color=fy_color, height=260)
+            if fig_fy: st.plotly_chart(fig_fy, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -965,6 +1038,24 @@ with tabs[3]:
                         fig = line_chart(h, title=name, color=color, height=200)
                         if fig: st.plotly_chart(fig, use_container_width=True)
 
+            # Relevant ETFs per category
+            _COMM_ETF_MAP = {
+                "Energy":         {"USO": "US Oil Fund", "UNG": "US Natural Gas Fund",
+                                   "PDBC": "Invesco Commodity", "GSG": "iShares Commodity"},
+                "Precious Metals": {"GLD": "SPDR Gold Shares", "SLV": "iShares Silver Trust",
+                                    "GDX": "Gold Miners ETF", "GDXJ": "Junior Gold Miners"},
+                "Base Metals":    {"CPER": "US Copper Index", "PDBC": "Invesco Commodity"},
+                "Agricultural":   {"PDBC": "Invesco Commodity", "GSG": "iShares Commodity"},
+                "Softs":          {"PDBC": "Invesco Commodity", "GSG": "iShares Commodity"},
+            }
+            etf_map_c = _COMM_ETF_MAP.get(cat)
+            if etf_map_c:
+                section(f"{cat} — Related ETFs")
+                df_cetf = get_performance_summary(etf_map_c)
+                if not df_cetf.empty:
+                    show_c = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_cetf.columns]
+                    st.dataframe(style_df(df_cetf[show_c]), use_container_width=True, hide_index=True)
+
     with comm_tabs[-1]:
         section("All Commodities")
         all_c = {n: s for cat, items in COMMODITIES.items() for n, s in items.items()}
@@ -972,6 +1063,12 @@ with tabs[3]:
         if not df_all.empty:
             show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_all.columns]
             st.dataframe(style_df(df_all[show]), use_container_width=True, hide_index=True)
+        section("All Commodity ETFs")
+        all_comm_etfs = {v["name"]: k for k, v in ETF_UNIVERSE["Commodities"].items()}
+        df_all_cetf = get_performance_summary(all_comm_etfs)
+        if not df_all_cetf.empty:
+            show_ac = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_all_cetf.columns]
+            st.dataframe(style_df(df_all_cetf[show_ac]), use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
