@@ -1311,7 +1311,7 @@ with tabs[4]:
 
             _chart_sym = st.session_state[_sk]
             if _chart_sym in _TV_SYM:
-                tv_chart(_chart_sym, height=420, interval="D", style="2")
+                tv_chart(_chart_sym, height=420, interval="D")
 
     with fx_tabs[-1]:
         section("FX vs USD — 1D % Change")
