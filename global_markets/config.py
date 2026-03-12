@@ -77,11 +77,6 @@ COMMODITIES = {
         "Sugar": "SB=F",
         "Cotton": "CT=F",
     },
-    "Softs": {
-        "Cocoa": "CC=F",
-        "Orange Juice": "OJ=F",
-        "Lumber": "LBS=F",
-    },
 }
 
 CURRENCIES = {
