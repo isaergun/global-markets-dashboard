@@ -72,10 +72,6 @@ COMMODITIES = {
     "Agricultural": {
         "Wheat": "ZW=F",
         "Corn": "ZC=F",
-        "Soybeans": "ZS=F",
-        "Coffee": "KC=F",
-        "Sugar": "SB=F",
-        "Cotton": "CT=F",
     },
 }
 
