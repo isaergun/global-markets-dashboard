@@ -1287,7 +1287,7 @@ with tabs[5]:
                 {d_html}
               </div>
             """, unsafe_allow_html=True)
-            if st.button("select", key=f"cr_sel_{sym}", use_container_width=True, label_visibility="hidden"):
+            if st.button(" ", key=f"cr_sel_{sym}", use_container_width=True):
                 st.session_state["crypto_chart_sym"] = sym
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
