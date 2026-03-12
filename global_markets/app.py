@@ -4,6 +4,7 @@ Run: streamlit run global_markets/app.py
 """
 
 import streamlit as st
+import streamlit.components.v1 as stc
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -281,6 +282,86 @@ button[role="tab"][aria-selected="true"] {
 }
 </style>
 """, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRADINGVIEW CHARTS
+# ══════════════════════════════════════════════════════════════════════════════
+# Yahoo Finance → TradingView symbol mapping
+_TV_SYM = {
+    # Indices
+    "^GSPC": "SP:SPX",      "^DJI": "DJ:DJI",       "^NDX": "NASDAQ:NDX",
+    "^IXIC": "NASDAQ:IXIC", "^RUT": "TVC:RUT",       "^VIX": "TVC:VIX",
+    "^FTSE": "TVC:UKX",     "^GDAXI": "XETR:DAX",    "^FCHI": "EURONEXT:PX1",
+    "^STOXX50E": "TVC:SX5E","^N225": "TVC:NI225",    "^HSI": "TVC:HSI",
+    "000001.SS": "SSE:000001","^BSESN": "BSE:SENSEX", "^AXJO": "ASX:XJO",
+    "^KOSPI": "KRX:KOSPI",  "^TWII": "TWSE:Y9999",
+    # Rates
+    "^TNX": "TVC:US10Y",    "^TYX": "TVC:US30Y",
+    "^FVX": "TVC:US05Y",    "^IRX": "TVC:US03MY",
+    # Commodities
+    "GC=F": "TVC:GOLD",     "SI=F": "TVC:SILVER",
+    "CL=F": "NYMEX:CL1!",   "NG=F": "NYMEX:NG1!",
+    "HG=F": "COMEX:HG1!",   "ZW=F": "CBOT:ZW1!",
+    "ZC=F": "CBOT:ZC1!",    "ZS=F": "CBOT:ZS1!",
+    "CC=F": "ICEUS:CC1!",   "KC=F": "ICEUS:KC1!",
+    "SB=F": "ICEUS:SB1!",   "PL=F": "NYMEX:PL1!",
+    "PA=F": "NYMEX:PA1!",
+    # Crypto
+    "BTC-USD":  "BINANCE:BTCUSDT",  "ETH-USD":  "BINANCE:ETHUSDT",
+    "BNB-USD":  "BINANCE:BNBUSDT",  "SOL-USD":  "BINANCE:SOLUSDT",
+    "XRP-USD":  "BINANCE:XRPUSDT",  "ADA-USD":  "BINANCE:ADAUSDT",
+    "AVAX-USD": "BINANCE:AVAXUSDT", "DOGE-USD": "BINANCE:DOGEUSDT",
+    # FX — majors
+    "EURUSD=X": "FX:EURUSD",  "GBPUSD=X": "FX:GBPUSD",
+    "USDJPY=X": "FX:USDJPY",  "USDCHF=X": "FX:USDCHF",
+    "AUDUSD=X": "FX:AUDUSD",  "NZDUSD=X": "FX:NZDUSD",
+    "USDCAD=X": "FX:USDCAD",
+    # FX — emerging
+    "USDCNY=X": "FX_IDC:USDCNY", "USDBRL=X": "FX_IDC:USDBRL",
+    "USDINR=X": "FX_IDC:USDINR", "USDTRY=X": "FX_IDC:USDTRY",
+    "USDMXN=X": "FX_IDC:USDMXN","USDKRW=X": "FX_IDC:USDKRW",
+    "USDZAR=X": "FX_IDC:USDZAR","USDRUB=X": "FX_IDC:USDRUB",
+    # DXY
+    "DX-Y.NYB": "TVC:DXY",
+    # ETFs (select common ones)
+    "SPY": "AMEX:SPY",   "QQQ": "NASDAQ:QQQ",  "IWM": "AMEX:IWM",
+    "GLD": "AMEX:GLD",   "SLV": "AMEX:SLV",    "USO": "AMEX:USO",
+    "IBIT": "NASDAQ:IBIT","FBTC": "NASDAQ:FBTC","ETHA": "NASDAQ:ETHA",
+}
+
+def tv_chart(yf_symbol: str, height: int = 380, interval: str = "D",
+             style: str = "1") -> None:
+    """
+    Embed a TradingView Advanced Chart for the given Yahoo Finance symbol.
+    style: "1"=candles, "2"=line, "3"=mountain/area
+    """
+    tv_sym = _TV_SYM.get(yf_symbol, yf_symbol)
+    cid = f"tv_{abs(hash(yf_symbol))}"
+    html = f"""
+    <div id="{cid}" style="height:{height}px;border-radius:12px;overflow:hidden;"></div>
+    <script src="https://s3.tradingview.com/tv.js"></script>
+    <script>
+    new TradingView.widget({{
+      "container_id": "{cid}",
+      "width":  "100%",
+      "height": {height},
+      "symbol": "{tv_sym}",
+      "interval": "{interval}",
+      "timezone": "Etc/UTC",
+      "theme": "light",
+      "style": "{style}",
+      "locale": "en",
+      "hide_side_toolbar": true,
+      "allow_symbol_change": false,
+      "save_image": false,
+      "hide_top_toolbar": false,
+      "withdateranges": true,
+      "details": false
+    }});
+    </script>
+    """
+    stc.html(html, height=height + 8, scrolling=False)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -693,6 +774,11 @@ with tabs[0]:
                 show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_perf.columns]
                 st.dataframe(style_df(df_perf[show]), use_container_width=True, hide_index=True)
 
+            # TradingView chart for the first (main) index of each region
+            main_sym = list(items.values())[0]
+            if main_sym in _TV_SYM:
+                tv_chart(main_sym, height=420, interval="D")
+
     # ── Equity ETF Performance ───────────────────────────────────────────────
     section("Equity ETF Performance")
     eq_etf_tabs = st.tabs(["US Equity", "International", "Thematic"])
@@ -936,10 +1022,8 @@ with tabs[2]:
                 stat_card(label, f"{q['price']:.3f}%" if q else "—",
                           q.get("pct_change") if q else None)
 
-        section("10-Year Treasury — 3 Month")
-        tnx = get_history("^TNX", "3mo")
-        fig_tnx = line_chart(tnx, title="US 10Y Yield (%)", color=PALETTE[0], height=240, yformat="%")
-        if fig_tnx: st.plotly_chart(fig_tnx, use_container_width=True)
+        section("10-Year Treasury")
+        tv_chart("^TNX", height=340, interval="D", style="2")
 
         section("Yield Spread: 10Y – 5Y (Inversion Watch)")
         fvx = get_history("^FVX","3mo")
@@ -1114,6 +1198,14 @@ with tabs[4]:
                 show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_fx.columns]
                 st.dataframe(style_df(df_fx[show]), use_container_width=True, hide_index=True)
 
+            # TradingView charts for FX pairs (2 columns)
+            fx_syms = [s for s in items.values() if s in _TV_SYM]
+            if fx_syms:
+                ch_cols = st.columns(min(2, len(fx_syms)))
+                for ci, sym in enumerate(fx_syms[:4]):
+                    with ch_cols[ci % 2]:
+                        tv_chart(sym, height=300, interval="D", style="2")
+
     with fx_tabs[-1]:
         section("FX vs USD — 1D % Change")
         all_fx = {n: s for cat, items in CURRENCIES.items() for n, s in items.items()}
@@ -1136,12 +1228,8 @@ with tabs[4]:
             fig_fxh.update_layout(**layout_fxh)
             st.plotly_chart(fig_fxh, use_container_width=True)
 
-    section("DXY Dollar Index — 3 Month")
-    dxy = get_history("DX-Y.NYB","3mo")
-    dxy_q = get_bulk_quotes(["DX-Y.NYB"]).get("DX-Y.NYB")
-    color_dxy = "#16a34a" if (dxy_q or {}).get("pct_change",0) >= 0 else "#dc2626"
-    fig_dxy = line_chart(dxy, title="DXY", color=color_dxy, height=240)
-    if fig_dxy: st.plotly_chart(fig_dxy, use_container_width=True)
+    section("DXY Dollar Index")
+    tv_chart("DX-Y.NYB", height=360, interval="D", style="2")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1161,18 +1249,11 @@ with tabs[5]:
 
     c_btc, c_eth = st.columns(2)
     with c_btc:
-        section("Bitcoin — 3 Month")
-        btc_h = get_history("BTC-USD","3mo")
-        fig_btc = candle_chart(btc_h, "BTC/USD", height=360)
-        if fig_btc: st.plotly_chart(fig_btc, use_container_width=True)
-
+        section("Bitcoin")
+        tv_chart("BTC-USD", height=400, interval="D")
     with c_eth:
-        section("Ethereum — 3 Month")
-        eth_h = get_history("ETH-USD","3mo")
-        eth_q = cq2.get("ETH-USD")
-        ec = "#16a34a" if (eth_q or {}).get("pct_change",0)>=0 else "#dc2626"
-        fig_eth = line_chart(eth_h, title="ETH/USD", color=ec, height=360)
-        if fig_eth: st.plotly_chart(fig_eth, use_container_width=True)
+        section("Ethereum")
+        tv_chart("ETH-USD", height=400, interval="D")
 
     section("Crypto Performance Table")
     df_cr = get_performance_summary(CRYPTO)
