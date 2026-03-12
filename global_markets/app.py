@@ -191,6 +191,29 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
     box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     transform: translateY(-1px);
 }
+.stat-card-sel {
+    border: 2px solid #7c3aed !important;
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+}
+/* Crypto card click wrapper */
+.crypto-card-wrap {
+    position: relative;
+    margin: 4px 0;
+}
+.crypto-card-wrap .stat-card {
+    margin: 0;
+}
+.crypto-card-wrap [data-testid="stButton"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    z-index: 10;
+}
+.crypto-card-wrap [data-testid="stButton"] button {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
 .stat-label {
     font-size: 10px;
     color: #9ca3af;
@@ -1236,24 +1259,45 @@ with tabs[4]:
 # TAB 6 — CRYPTO
 # ══════════════════════════════════════════════════════════════════════════════
 with tabs[5]:
+    if "crypto_chart_sym" not in st.session_state:
+        st.session_state["crypto_chart_sym"] = "BTC-USD"
+
     section("Crypto Markets")
     cq2 = get_bulk_quotes(list(CRYPTO.values()))
     cr_cols = st.columns(4)
     for i, (name, sym) in enumerate(CRYPTO.items()):
         q = cq2.get(sym)
+        price_str = fmt_price(q["price"]) if q else "—"
+        delta = q.get("pct_change") if q else None
+        is_sel = (st.session_state["crypto_chart_sym"] == sym)
+        if delta is not None:
+            arrow = "▲" if delta >= 0 else "▼"
+            sign  = "+" if delta >= 0 else ""
+            cc    = "pos" if delta >= 0 else "neg"
+            d_html = f'<div class="stat-delta {cc}">{arrow} {sign}{delta:.2f}%</div>'
+        else:
+            d_html = ""
+        sel_cls = " stat-card-sel" if is_sel else ""
         with cr_cols[i % 4]:
-            price_str = fmt_price(q["price"]) if q else "—"
-            stat_card(name, price_str, q.get("pct_change") if q else None)
+            st.markdown(f"""
+            <div class="crypto-card-wrap">
+              <div class="stat-card{sel_cls}">
+                <div class="stat-label">{name}</div>
+                <div class="stat-value">{price_str}</div>
+                {d_html}
+              </div>
+            """, unsafe_allow_html=True)
+            if st.button("select", key=f"cr_sel_{sym}", use_container_width=True, label_visibility="hidden"):
+                st.session_state["crypto_chart_sym"] = sym
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-    c_btc, c_eth = st.columns(2)
-    with c_btc:
-        section("Bitcoin")
-        tv_chart("BTC-USD", height=400, interval="D")
-    with c_eth:
-        section("Ethereum")
-        tv_chart("ETH-USD", height=400, interval="D")
+    sel_sym  = st.session_state["crypto_chart_sym"]
+    sel_name = next((n for n, s in CRYPTO.items() if s == sel_sym), "Bitcoin")
+    section(sel_name)
+    tv_chart(sel_sym, height=440, interval="D")
 
     section("Crypto Performance Table")
     df_cr = get_performance_summary(CRYPTO)
