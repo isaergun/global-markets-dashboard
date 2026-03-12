@@ -444,7 +444,7 @@ ws.onmessage=function(e){{
   var d=JSON.parse(e.data).data;
   if(!d||!d.s)return;
   var s=d.s.toLowerCase();
-  var p=parseFloat(d.c),pct=parseFloat(d.P);
+  var p=parseFloat(d.c),o=parseFloat(d.o),pct=o>0?(p-o)/o*100:0;
   var pEl=document.getElementById('p_'+s);
   var dEl=document.getElementById('d_'+s);
   if(!pEl||!dEl)return;
