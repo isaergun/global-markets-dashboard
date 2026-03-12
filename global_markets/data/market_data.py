@@ -282,10 +282,11 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
         """
         Construct approximate 10Y JGB yield history from 1482.T ETF price.
         Uses inverse price-yield relationship:  yield(t) ≈ anchor × latest_price / price(t)
-        yfinance always works on Streamlit Cloud — use as last resort for history.
+        Uses yf.Ticker directly — NOT get_history() — to avoid nested @st.cache_data issues.
         """
         try:
-            hist = get_history("1482.T", "1y")
+            # Direct yfinance call, not the cached wrapper, to avoid nested cache context
+            hist = yf.Ticker("1482.T").history(period="1y", auto_adjust=True)
             if hist is None or hist.empty:
                 return None
             prices = hist["Close"].dropna()
