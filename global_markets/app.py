@@ -997,7 +997,7 @@ with tabs[2]:
                 layout_jyc["yaxis"]["ticksuffix"] = "%"
                 layout_jyc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
                 fig_jyc.update_layout(**layout_jyc)
-                st.plotly_chart(fig_jyc, use_container_width=True)
+                st.plotly_chart(fig_jyc, use_container_width=True, key="jp_yc_chart")
         with col_jyd:
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
             for tenor in x_labels:
@@ -1017,41 +1017,35 @@ with tabs[2]:
             ly10 = base_layout(240)
             ly10["yaxis"]["ticksuffix"] = "%"
             fig_j10.update_layout(**ly10)
-            st.plotly_chart(fig_j10, use_container_width=True)
+            st.plotly_chart(fig_j10, use_container_width=True, key="jp_10y_hist")
         else:
-            st.info("Historical JGB yield series unavailable. Yield curve snapshot shown above.")
+            st.info("Historical JGB yield series unavailable from Stooq/FRED. Yield curve snapshot shown above.")
 
         # ── US vs Japan 10Y comparison ────────────────────────────────────────
         section("US vs Japan — 10Y Yield Comparison (3 Month)")
         us_hist = get_history("^TNX", "3mo")
-        if us_hist is not None and jp_hist10 is not None:
-            us_ser = us_hist["Close"].dropna()
-            jp_ser = jp_hist10.dropna()
-            combined = pd.DataFrame({"US 10Y": us_ser, "JP 10Y": jp_ser}).dropna(how="all")
-            if not combined.empty:
-                fig_cmp = go.Figure()
+        if us_hist is not None:
+            fig_cmp = go.Figure()
+            fig_cmp.add_trace(go.Scatter(
+                x=us_hist.index, y=us_hist["Close"].dropna(),
+                name="US 10Y", mode="lines",
+                line=dict(color=PALETTE[0], width=2),
+                hovertemplate="US 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
+            ))
+            if jp_hist10 is not None and not jp_hist10.empty:
+                jp_ser = jp_hist10.dropna()
                 fig_cmp.add_trace(go.Scatter(
-                    x=combined.index, y=combined["US 10Y"],
-                    name="US 10Y", mode="lines",
-                    line=dict(color=PALETTE[0], width=2),
-                    hovertemplate="US 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
+                    x=jp_ser.index, y=jp_ser,
+                    name="JP 10Y", mode="lines",
+                    line=dict(color="#e11d48", width=2),
+                    hovertemplate="JP 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
                 ))
-                if "JP 10Y" in combined.columns:
-                    fig_cmp.add_trace(go.Scatter(
-                        x=combined.index, y=combined["JP 10Y"],
-                        name="JP 10Y", mode="lines",
-                        line=dict(color="#e11d48", width=2),
-                        hovertemplate="JP 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
-                    ))
-                ly_cmp = base_layout(260)
-                ly_cmp["yaxis"]["ticksuffix"] = "%"
-                ly_cmp["showlegend"] = True
-                ly_cmp["legend"] = dict(orientation="h", x=0, y=1.12, font=dict(size=11))
-                fig_cmp.update_layout(**ly_cmp)
-                st.plotly_chart(fig_cmp, use_container_width=True)
-        elif us_hist is not None:
-            fig_us_only = line_chart(us_hist, title="US 10Y Yield (%)", color=PALETTE[0], height=240, yformat="%")
-            if fig_us_only: st.plotly_chart(fig_us_only, use_container_width=True)
+            ly_cmp = base_layout(260)
+            ly_cmp["yaxis"]["ticksuffix"] = "%"
+            ly_cmp["showlegend"] = True
+            ly_cmp["legend"] = dict(orientation="h", x=0, y=1.12, font=dict(size=11))
+            fig_cmp.update_layout(**ly_cmp)
+            st.plotly_chart(fig_cmp, use_container_width=True, key="jp_us_cmp")
 
         # ── Japan bond ETF performance ────────────────────────────────────────
         section("Japan Bond ETF Performance")
