@@ -1,0 +1,1221 @@
+"""
+Global Markets Dashboard  —  Professional Edition
+Run: streamlit run global_markets/app.py
+"""
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+from datetime import datetime, timezone
+import warnings
+warnings.filterwarnings("ignore")
+
+st.set_page_config(
+    page_title="Global Markets",
+    page_icon="🌍",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ── local imports ──────────────────────────────────────────────────────────────
+from config import (
+    INDICES, YIELD_SYMBOLS, COMMODITIES, CURRENCIES,
+    CRYPTO, ETF_UNIVERSE, AUTO_REFRESH_SECS,
+)
+from data.market_data import (
+    get_quote, get_bulk_quotes, get_history, get_multi_history,
+    get_etf_info, compute_etf_flow_proxy, get_yield_curve,
+    get_performance_summary,
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GLOBAL CSS
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Base ── */
+html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
+.main { background-color: #f4f5f7 !important; }
+
+/* ── Remove Streamlit chrome ── */
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 1.5rem 2.5rem 4rem; max-width: 1600px; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f0f0f3; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+/* ════════════════════════════════
+   HEADER
+════════════════════════════════ */
+.dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0 24px 0;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 24px;
+}
+.dash-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1a1d2e;
+    letter-spacing: -0.6px;
+}
+.dash-subtitle {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 3px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.market-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11px;
+    color: #16a34a;
+    font-weight: 600;
+}
+.market-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ════════════════════════════════
+   HERO METRIC CARDS  (top bar)
+════════════════════════════════ */
+.hero-card {
+    background: #ffffff;
+    border: 1px solid #e9eaec;
+    border-radius: 14px;
+    padding: 16px 18px 14px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+.hero-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+.hero-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+}
+.hero-card.pos::before { background: linear-gradient(90deg, #22c55e 0%, #86efac 100%); }
+.hero-card.neg::before { background: linear-gradient(90deg, #ef4444 0%, #fca5a5 100%); }
+.hero-card.neu::before { background: linear-gradient(90deg, #7c3aed 0%, #c4b5fd 100%); }
+
+.hero-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin-bottom: 7px;
+}
+.hero-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.4px;
+    line-height: 1.2;
+}
+.hero-change {
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 5px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.pos { color: #16a34a; }
+.neg { color: #dc2626; }
+.neu { color: #7c3aed; }
+
+/* ════════════════════════════════
+   SECTION HEADERS
+════════════════════════════════ */
+.sec-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 28px 0 16px;
+}
+.sec-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, #e5e7eb 0%, transparent 100%);
+}
+.sec-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+}
+
+/* ════════════════════════════════
+   STAT CARDS  (small)
+════════════════════════════════ */
+.stat-card {
+    background: #ffffff;
+    border: 1px solid #e9eaec;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 4px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: box-shadow 0.15s, transform 0.12s;
+}
+.stat-card:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+.stat-label {
+    font-size: 10px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+.stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.3px;
+}
+.stat-delta {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+/* ════════════════════════════════
+   TABS  — pill style
+════════════════════════════════ */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 6px !important;
+    background-color: #ebebf0 !important;
+    padding: 5px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    margin-bottom: 24px !important;
+}
+button[role="tab"] {
+    background-color: transparent !important;
+    border-radius: 9px !important;
+    padding: 8px 20px !important;
+    border: none !important;
+    color: #6b7280 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    transition: all 0.15s !important;
+    font-family: 'Inter', sans-serif !important;
+}
+button[role="tab"]:hover {
+    color: #1a1d2e !important;
+    background-color: rgba(255,255,255,0.6) !important;
+}
+button[role="tab"][aria-selected="true"] {
+    background-color: #ffffff !important;
+    color: #7c3aed !important;
+    font-weight: 700 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12) !important;
+}
+.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-border"] { display: none !important; }
+
+/* ════════════════════════════════
+   TABLES
+════════════════════════════════ */
+.stDataFrame {
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    border: 1px solid #e9eaec !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+}
+
+/* ════════════════════════════════
+   SELECT / INPUT
+════════════════════════════════ */
+.stSelectbox > div > div {
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+    border-radius: 10px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+
+/* ════════════════════════════════
+   FOOTER
+════════════════════════════════ */
+.dash-footer {
+    text-align: center;
+    color: #d1d5db;
+    font-size: 10px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 16px;
+    margin-top: 40px;
+    letter-spacing: 0.04em;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+def fmt_price(v, dec=2):
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "—"
+    if abs(v) >= 1_000_000:
+        return f"${v/1_000_000:.2f}M"
+    if abs(v) >= 1_000:
+        return f"{v:,.{dec}f}"
+    return f"{v:.{dec}f}"
+
+def fmt_pct(v):
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "—"
+    sign = "+" if v >= 0 else ""
+    return f"{sign}{v:.2f}%"
+
+def fmt_aum(v):
+    if v is None:
+        return "—"
+    if v >= 1e12: return f"${v/1e12:.2f}T"
+    if v >= 1e9:  return f"${v/1e9:.2f}B"
+    if v >= 1e6:  return f"${v/1e6:.2f}M"
+    return f"${v:,.0f}"
+
+def fmt_flow(v):
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "—"
+    sign = "+" if v >= 0 else ""
+    if abs(v) >= 1e9: return f"{sign}{v/1e9:.2f}B"
+    if abs(v) >= 1e6: return f"{sign}{v/1e6:.1f}M"
+    return f"{sign}{v/1e3:.0f}K"
+
+def fmt_vol(v):
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "—"
+    if v >= 1e9: return f"{v/1e9:.1f}B"
+    if v >= 1e6: return f"{v/1e6:.1f}M"
+    return f"{v:,.0f}"
+
+def pct_color(v):
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "color:#9ca3af"
+    return "color:#16a34a;font-weight:600" if v > 0 else ("color:#dc2626;font-weight:600" if v < 0 else "color:#9ca3af")
+
+def card_class(v):
+    if v is None: return "neu"
+    return "pos" if v >= 0 else "neg"
+
+def hero_card(label, price, pct=None):
+    cc = card_class(pct)
+    if pct is not None:
+        arrow = "▲" if pct >= 0 else "▼"
+        sign  = "+" if pct >= 0 else ""
+        delta = f'<div class="hero-change {cc}">{arrow} {sign}{pct:.2f}%</div>'
+    else:
+        delta = ""
+    st.markdown(f"""
+    <div class="hero-card {cc}">
+      <div class="hero-label">{label}</div>
+      <div class="hero-price">{price}</div>
+      {delta}
+    </div>""", unsafe_allow_html=True)
+
+def stat_card(label, value, delta=None):
+    if delta is not None:
+        arrow = "▲" if delta >= 0 else "▼"
+        sign  = "+" if delta >= 0 else ""
+        cc    = "pos" if delta >= 0 else "neg"
+        d_html = f'<div class="stat-delta {cc}">{arrow} {sign}{delta:.2f}%</div>'
+    else:
+        d_html = ""
+    st.markdown(f"""
+    <div class="stat-card">
+      <div class="stat-label">{label}</div>
+      <div class="stat-value">{value}</div>
+      {d_html}
+    </div>""", unsafe_allow_html=True)
+
+def section(title):
+    st.markdown(f"""
+    <div class="sec-header">
+      <span class="sec-title">{title}</span>
+      <div class="sec-line"></div>
+    </div>""", unsafe_allow_html=True)
+
+# ── Chart theme  (light / fintech) ────────────────────────────────────────────
+CHART_BG   = "rgba(0,0,0,0)"
+GRID_COLOR = "#f0f0f3"
+AXIS_COLOR = "#e5e7eb"
+TICK_COLOR = "#9ca3af"
+PURPLE     = "#7c3aed"
+
+PALETTE = [PURPLE, "#2563eb","#0891b2","#16a34a","#d97706","#dc2626","#db2777","#059669"]
+
+def base_layout(height=280, margin=None):
+    m = margin or dict(l=4, r=4, t=28, b=4)
+    return dict(
+        height=height,
+        margin=m,
+        paper_bgcolor=CHART_BG,
+        plot_bgcolor=CHART_BG,
+        font=dict(family="Inter", color=TICK_COLOR, size=10),
+        xaxis=dict(showgrid=False, color=TICK_COLOR, zeroline=False,
+                   tickfont=dict(size=9, color=TICK_COLOR),
+                   linecolor=AXIS_COLOR),
+        yaxis=dict(showgrid=True, gridcolor=GRID_COLOR, color=TICK_COLOR,
+                   zeroline=False, tickfont=dict(size=9, color=TICK_COLOR),
+                   linecolor=AXIS_COLOR),
+        showlegend=False,
+        hovermode="x unified",
+    )
+
+def sparkline(hist_df, color="#4a90e2", height=90):
+    """Tiny area sparkline."""
+    if hist_df is None or hist_df.empty:
+        return None
+    y = hist_df["Close"].dropna().values
+    if len(y) < 2:
+        return None
+    x = list(range(len(y)))
+    fill_color = f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.12)"
+    fig = go.Figure(go.Scatter(
+        x=x, y=y, mode="lines",
+        line=dict(color=color, width=1.5),
+        fill="tozeroy", fillcolor=fill_color,
+        hoverinfo="skip",
+    ))
+    fig.update_layout(
+        height=height, margin=dict(l=0,r=0,t=0,b=0),
+        paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+        xaxis=dict(visible=False), yaxis=dict(visible=False),
+        showlegend=False,
+    )
+    return fig
+
+def line_chart(hist_df, col="Close", title="", color="#4a90e2", height=260, yformat=None):
+    if hist_df is None or hist_df.empty:
+        return None
+    df = hist_df.reset_index()
+    df.columns = [str(c) for c in df.columns]
+    date_col = df.columns[0]
+    y = df[col].dropna()
+    fill = f"rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.08)"
+    fig = go.Figure(go.Scatter(
+        x=df[date_col], y=y,
+        mode="lines",
+        line=dict(color=color, width=2),
+        fill="tozeroy", fillcolor=fill,
+        hovertemplate=f"%{{y:.2f}}<extra></extra>",
+    ))
+    layout = base_layout(height)
+    layout["title"] = dict(text=title, font=dict(size=11, color="#6b7494"), x=0)
+    if yformat:
+        layout["yaxis"]["ticksuffix"] = yformat
+    fig.update_layout(**layout)
+    return fig
+
+def candle_chart(hist_df, title="", height=340):
+    if hist_df is None or hist_df.empty:
+        return None
+    df = hist_df.reset_index()
+    df.columns = [str(c) for c in df.columns]
+    date_col = df.columns[0]
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.72, 0.28], vertical_spacing=0.03)
+    fig.add_trace(go.Candlestick(
+        x=df[date_col], open=df["Open"], high=df["High"], low=df["Low"], close=df["Close"],
+        increasing=dict(line=dict(color="#16a34a", width=1), fillcolor="rgba(22,163,74,0.75)"),
+        decreasing=dict(line=dict(color="#dc2626", width=1), fillcolor="rgba(220,38,38,0.75)"),
+        name="", showlegend=False,
+    ), row=1, col=1)
+    vol_colors = ["#16a34a" if c >= o else "#dc2626"
+                  for c, o in zip(df["Close"], df["Open"])]
+    fig.add_trace(go.Bar(
+        x=df[date_col], y=df["Volume"],
+        marker_color=vol_colors, marker_opacity=0.6,
+        showlegend=False,
+    ), row=2, col=1)
+
+    layout = base_layout(height, margin=dict(l=4, r=4, t=30, b=4))
+    layout["title"] = dict(text=title, font=dict(size=11, color="#6b7494"), x=0)
+    layout["xaxis_rangeslider_visible"] = False
+    layout["xaxis2"] = dict(showgrid=False, color=TICK_COLOR, zeroline=False,
+                             tickfont=dict(size=9, color=TICK_COLOR))
+    layout["yaxis2"] = dict(showgrid=True, gridcolor=GRID_COLOR, color=TICK_COLOR,
+                             zeroline=False, tickfont=dict(size=9))
+    fig.update_layout(**layout)
+    return fig
+
+def style_df(df: pd.DataFrame, pct_cols=None, flow_cols=None):
+    """Apply color styling to a performance DataFrame."""
+    if pct_cols is None:
+        pct_cols = [c for c in ["1D %","5D %","1M %","YTD %"] if c in df.columns]
+    if flow_cols is None:
+        flow_cols = [c for c in ["Flow 5D","Flow 1M"] if c in df.columns]
+
+    formatters = {}
+    for c in pct_cols:
+        formatters[c] = fmt_pct
+    for c in flow_cols:
+        formatters[c] = fmt_flow
+    if "Price" in df.columns:
+        formatters["Price"] = lambda v: f"{v:,.2f}" if not pd.isna(v) else "—"
+    if "Volume" in df.columns:
+        formatters["Volume"] = fmt_vol
+    if "AUM" in df.columns:
+        formatters["AUM"] = fmt_aum
+    if "Rel. Vol." in df.columns:
+        formatters["Rel. Vol."] = lambda v: f"{v:.2f}x" if not pd.isna(v) else "—"
+
+    styled = df.style.format(formatters, na_rep="—")
+    for col in pct_cols:
+        styled = styled.applymap(pct_color, subset=[col])
+    for col in flow_cols:
+        styled = styled.applymap(
+            lambda v: "color:#16a34a;font-weight:600" if not pd.isna(v) and v > 0
+                      else ("color:#dc2626;font-weight:600" if not pd.isna(v) and v < 0 else "color:#9ca3af"),
+            subset=[col]
+        )
+    styled = styled.set_properties(**{
+        "background-color": "#ffffff",
+        "color": "#111827",
+        "border-color": "#f3f4f6",
+        "font-size": "12px",
+        "font-family": "Inter, sans-serif",
+    })
+    styled = styled.set_table_styles([
+        {"selector": "th", "props": [
+            ("background-color", "#f9fafb"),
+            ("color", "#6b7280"),
+            ("font-size", "10px"),
+            ("font-weight", "700"),
+            ("text-transform", "uppercase"),
+            ("letter-spacing", "0.08em"),
+            ("border-color", "#e5e7eb"),
+            ("font-family", "Inter, sans-serif"),
+        ]},
+        {"selector": "tr:hover td", "props": [("background-color", "#faf5ff")]},
+    ])
+    return styled
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HEADER
+# ══════════════════════════════════════════════════════════════════════════════
+now = datetime.now(timezone.utc)
+weekday = now.weekday()   # 0=Mon … 6=Sun
+hour    = now.hour
+us_open = (weekday < 5) and (13 <= hour < 21)   # ~NYSE hours UTC
+badge_color = "#16a34a" if us_open else "#f59e0b"
+badge_label = "US Markets Open" if us_open else "Markets Closed"
+
+st.markdown(f"""
+<div class="dash-header">
+  <div>
+    <div class="dash-title">🌍 Global Markets Dashboard</div>
+    <div class="dash-subtitle">{now.strftime('%A, %d %B %Y  •  %H:%M UTC')}</div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <div class="market-badge" style="border-color:rgba(240,180,41,0.3);color:{badge_color};background:rgba(240,180,41,0.08)">
+      <div class="market-dot" style="background:{badge_color};box-shadow:0 0 6px {badge_color}"></div>
+      {badge_label}
+    </div>
+    <div style="font-size:11px;color:#2d3142;font-family:'JetBrains Mono',monospace;">
+      ↻ {AUTO_REFRESH_SECS}s
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HERO BAR
+# ══════════════════════════════════════════════════════════════════════════════
+HERO = {
+    "S&P 500": ("^GSPC", 2),
+    "NASDAQ 100": ("^NDX", 2),
+    "VIX": ("^VIX", 2),
+    "DXY": ("DX-Y.NYB", 3),
+    "Gold": ("GC=F", 2),
+    "WTI": ("CL=F", 2),
+    "10Y Yield": ("^TNX", 3),
+    "BTC/USD": ("BTC-USD", 0),
+}
+
+with st.spinner(""):
+    hero_q = get_bulk_quotes([v[0] for v in HERO.values()])
+
+st.markdown("""
+<div style="font-size:10px;color:#2d3142;text-transform:uppercase;letter-spacing:0.12em;
+            margin-bottom:8px;font-weight:600;">
+  📊 &nbsp; Anlık Piyasa Özeti
+</div>
+""", unsafe_allow_html=True)
+
+hero_cols = st.columns(len(HERO))
+for i, (label, (sym, dec)) in enumerate(HERO.items()):
+    q = hero_q.get(sym)
+    with hero_cols[i]:
+        if q:
+            hero_card(label, fmt_price(q["price"], dec), q.get("pct_change"))
+        else:
+            hero_card(label, "—")
+
+st.markdown("""
+<div style="margin:20px 0 4px;font-size:10px;color:#2d3142;text-transform:uppercase;
+            letter-spacing:0.12em;font-weight:600;">
+  🗂 &nbsp; Bölümler — aşağıdan sekmeye tıklayın
+</div>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TABS
+# ══════════════════════════════════════════════════════════════════════════════
+tabs = st.tabs([
+    "📈  Equities",
+    "💵  ETF Flows",
+    "🏦  Fixed Income",
+    "🛢  Commodities",
+    "💱  Currencies",
+    "₿   Crypto",
+    "🧠  Sentiment",
+])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — EQUITIES
+# ══════════════════════════════════════════════════════════════════════════════
+with tabs[0]:
+
+    # ── Heatmap + region nav ────────────────────────────────────────────────
+    all_idx = {n: s for r in INDICES.values() for n, s in r.items()}
+    idx_q = get_bulk_quotes(list(all_idx.values()))
+
+    # Treemap heatmap
+    section("Global Index Heatmap")
+    heat_rows = []
+    for region, items in INDICES.items():
+        for name, sym in items.items():
+            q = idx_q.get(sym)
+            if q and q.get("pct_change") is not None:
+                heat_rows.append({"Region": region, "Index": name,
+                                   "chg": q["pct_change"], "price": q["price"]})
+
+    if heat_rows:
+        df_h = pd.DataFrame(heat_rows)
+        # Custom discrete color: dark red → dark → dark green
+        scale = [
+            [0.0,  "#fef2f2"], [0.2, "#fca5a5"],
+            [0.4,  "#f9fafb"],
+            [0.6,  "#bbf7d0"], [1.0, "#16a34a"],
+        ]
+        fig_heat = px.treemap(
+            df_h, path=["Region","Index"],
+            values=[1]*len(df_h),
+            color="chg",
+            color_continuous_scale=scale,
+            color_continuous_midpoint=0,
+            custom_data=["chg","price","Index"],
+        )
+        fig_heat.update_traces(
+            hovertemplate="<b>%{customdata[2]}</b><br>%{customdata[1]:,.2f}<br>%{customdata[0]:+.2f}%<extra></extra>",
+            texttemplate="<b>%{label}</b><br>%{customdata[0]:+.2f}%",
+            textfont=dict(size=12, family="Inter"),
+            marker=dict(line=dict(width=2, color="#f4f5f7")),
+        )
+        fig_heat.update_layout(
+            height=340, margin=dict(l=0,r=0,t=0,b=0),
+            paper_bgcolor=CHART_BG,
+            coloraxis_showscale=False,
+        )
+        st.plotly_chart(fig_heat, use_container_width=True)
+
+    # ── Region tabs ─────────────────────────────────────────────────────────
+    reg_tabs = st.tabs(list(INDICES.keys()))
+    for ri, (region, items) in enumerate(INDICES.items()):
+        with reg_tabs[ri]:
+            sym_map = dict(items)
+            df_perf = get_performance_summary(sym_map)
+
+            # Mini metric grid
+            cols = st.columns(min(5, len(items)))
+            for i, (name, sym) in enumerate(items.items()):
+                q = idx_q.get(sym)
+                with cols[i % 5]:
+                    stat_card(name, fmt_price(q["price"]) if q else "—",
+                              q.get("pct_change") if q else None)
+
+            # Performance table
+            if not df_perf.empty:
+                show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_perf.columns]
+                st.dataframe(style_df(df_perf[show]), use_container_width=True, hide_index=True)
+
+    # ── Sector rotation ──────────────────────────────────────────────────────
+    section("S&P 500 Sector Rotation")
+    SECTOR_MAP = {v["name"]: k for k, v in ETF_UNIVERSE["Sector"].items()}
+    df_sec = get_performance_summary(SECTOR_MAP)
+
+    if not df_sec.empty:
+        df_sec2 = df_sec.dropna(subset=["1D %"]).sort_values("1D %")
+        colors = ["#16a34a" if v >= 0 else "#dc2626" for v in df_sec2["1D %"]]
+
+        fig_sec = go.Figure(go.Bar(
+            x=df_sec2["1D %"], y=df_sec2["Name"],
+            orientation="h",
+            marker=dict(color=colors, opacity=0.85,
+                        line=dict(width=0)),
+            text=[fmt_pct(v) for v in df_sec2["1D %"]],
+            textfont=dict(size=10, color="#8891a5", family="JetBrains Mono"),
+            textposition="outside",
+            hovertemplate="%{y}: %{x:+.2f}%<extra></extra>",
+        ))
+        layout = base_layout(320, margin=dict(l=4, r=70, t=4, b=4))
+        layout["xaxis"]["ticksuffix"] = "%"
+        layout["yaxis"]["tickfont"] = dict(size=11, color="#8891a5")
+        layout["bargap"] = 0.35
+        fig_sec.update_layout(**layout)
+        st.plotly_chart(fig_sec, use_container_width=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 — ETF FLOWS
+# ══════════════════════════════════════════════════════════════════════════════
+with tabs[1]:
+    section("ETF Flow Analysis")
+    st.markdown(
+        "<p style='font-size:11px;color:#2d3142;margin:-10px 0 12px'>"
+        "Flow Proxy = (Volume − 20D Avg) × Price × sign(Return) &nbsp;|&nbsp; "
+        "Pozitif = tahmini net giriş baskısı, Negatif = çıkış baskısı."
+        "</p>", unsafe_allow_html=True,
+    )
+
+    etf_cat = st.selectbox("Kategori", list(ETF_UNIVERSE.keys()), key="etf_cat",
+                            label_visibility="collapsed")
+    tickers  = list(ETF_UNIVERSE[etf_cat].keys())
+    etf_names = {t: ETF_UNIVERSE[etf_cat][t]["name"] for t in tickers}
+
+    rows = []
+    with st.spinner(f"ETF verileri yükleniyor…"):
+        for tk in tickers:
+            fd   = compute_etf_flow_proxy(tk)
+            info = get_etf_info(tk) if fd else {}
+            if not fd:
+                continue
+            rows.append({
+                "Ticker": tk, "Name": etf_names.get(tk,""),
+                "Price": fd.get("price"), "1D %": fd.get("perf_1d"),
+                "5D %": fd.get("perf_5d"), "1M %": fd.get("perf_1mo"),
+                "YTD %": fd.get("perf_ytd"),
+                "Volume": fd.get("volume"), "Rel. Vol.": fd.get("rel_volume"),
+                "Flow 5D": fd.get("flow_proxy_5d"), "Flow 1M": fd.get("flow_proxy_1mo"),
+                "AUM": info.get("total_assets"),
+            })
+
+    if rows:
+        df_etf = pd.DataFrame(rows)
+
+        # ── Summary cards ──────────────────────────────────────────────────
+        c1, c2, c3, c4 = st.columns(4)
+        valid_flow = df_etf["Flow 5D"].dropna()
+        with c1:
+            stat_card("Total AUM", fmt_aum(df_etf["AUM"].sum()))
+        with c2:
+            if len(valid_flow):
+                tk = df_etf.loc[df_etf["Flow 5D"].idxmax(), "Ticker"]
+                stat_card(f"Top Inflow  [{tk}]",
+                          fmt_flow(df_etf["Flow 5D"].max()),
+                          df_etf.loc[df_etf["Flow 5D"].idxmax(), "1D %"])
+        with c3:
+            if len(valid_flow):
+                tk = df_etf.loc[df_etf["Flow 5D"].idxmin(), "Ticker"]
+                stat_card(f"Top Outflow  [{tk}]",
+                          fmt_flow(df_etf["Flow 5D"].min()),
+                          df_etf.loc[df_etf["Flow 5D"].idxmin(), "1D %"])
+        with c4:
+            if df_etf["1D %"].notna().any():
+                tk = df_etf.loc[df_etf["1D %"].idxmax(), "Ticker"]
+                stat_card(f"Best Today  [{tk}]",
+                          fmt_price(df_etf.loc[df_etf["1D %"].idxmax(), "Price"]),
+                          df_etf["1D %"].max())
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        # ── Flow + RelVol side-by-side ─────────────────────────────────────
+        col_a, col_b = st.columns(2)
+        with col_a:
+            section("5-Day Flow Proxy")
+            df_fl = df_etf.dropna(subset=["Flow 5D"]).sort_values("Flow 5D")
+            bar_c = ["#16a34a" if v >= 0 else "#dc2626" for v in df_fl["Flow 5D"]]
+            fig_fl = go.Figure(go.Bar(
+                x=df_fl["Flow 5D"], y=df_fl["Ticker"],
+                orientation="h", marker=dict(color=bar_c, opacity=0.85, line=dict(width=0)),
+                text=[fmt_flow(v) for v in df_fl["Flow 5D"]],
+                textfont=dict(size=9, color="#6b7494", family="JetBrains Mono"),
+                textposition="outside",
+                hovertemplate="%{y}: %{x:,.0f}<extra></extra>",
+            ))
+            layout_fl = base_layout(max(280, len(df_fl)*30), dict(l=4,r=70,t=4,b=4))
+            layout_fl["bargap"] = 0.3
+            fig_fl.update_layout(**layout_fl)
+            st.plotly_chart(fig_fl, use_container_width=True)
+
+        with col_b:
+            section("Relative Volume (vs 20D Avg)")
+            df_rv = df_etf.dropna(subset=["Rel. Vol."]).sort_values("Rel. Vol.")
+            rv_c  = ["#f59e0b" if v >= 2 else PALETTE[0] for v in df_rv["Rel. Vol."]]
+            fig_rv = go.Figure(go.Bar(
+                x=df_rv["Rel. Vol."], y=df_rv["Ticker"],
+                orientation="h", marker=dict(color=rv_c, opacity=0.85, line=dict(width=0)),
+                text=[f"{v:.1f}×" for v in df_rv["Rel. Vol."]],
+                textfont=dict(size=9, color="#6b7494", family="JetBrains Mono"),
+                textposition="outside",
+                hovertemplate="%{y}: %{x:.2f}×<extra></extra>",
+            ))
+            fig_rv.add_vline(x=1.0, line_dash="dot", line_color="#2d3142", opacity=0.8)
+            layout_rv = base_layout(max(280, len(df_rv)*30), dict(l=4,r=60,t=4,b=4))
+            layout_rv["xaxis"]["ticksuffix"] = "×"
+            layout_rv["bargap"] = 0.3
+            fig_rv.update_layout(**layout_rv)
+            st.plotly_chart(fig_rv, use_container_width=True)
+
+        # ── Full table ─────────────────────────────────────────────────────
+        section("Tüm ETF Tablosu")
+        show_cols = [c for c in ["Ticker","Name","Price","1D %","5D %","1M %",
+                                  "YTD %","Rel. Vol.","Flow 5D","Flow 1M","AUM"] if c in df_etf.columns]
+        st.dataframe(style_df(df_etf[show_cols]), use_container_width=True, hide_index=True)
+
+        # ── Deep Dive ─────────────────────────────────────────────────────
+        section("ETF Deep Dive")
+        sel = st.selectbox("ETF seç", tickers, key="etf_deep", label_visibility="collapsed")
+        fd2 = compute_etf_flow_proxy(sel)
+        if fd2 and "flow_history" in fd2:
+            fh = fd2["flow_history"].reset_index()
+            fh.columns = [str(c) for c in fh.columns]
+            dc = fh.columns[0]
+
+            info2 = get_etf_info(sel)
+            m1,m2,m3,m4 = st.columns(4)
+            with m1: stat_card("AUM", fmt_aum(info2.get("total_assets")))
+            with m2: stat_card("Rel. Vol.", f"{fd2.get('rel_volume',0):.2f}×")
+            with m3: stat_card("Flow 5D", fmt_flow(fd2.get("flow_proxy_5d")), None)
+            with m4: stat_card("Flow 1M", fmt_flow(fd2.get("flow_proxy_1mo")), None)
+
+            fig_dd = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                                   subplot_titles=["Price","Volume vs 20D Avg","Flow Proxy"],
+                                   vertical_spacing=0.07, row_heights=[0.42,0.28,0.30])
+            fig_dd.add_trace(go.Scatter(
+                x=fh[dc], y=fh["Close"], mode="lines",
+                line=dict(color=PALETTE[0], width=2),
+                fill="tozeroy", fillcolor="rgba(74,144,226,0.07)",
+            ), row=1, col=1)
+            fig_dd.add_trace(go.Bar(
+                x=fh[dc], y=fh["Volume"],
+                marker=dict(color=PALETTE[0], opacity=0.5, line=dict(width=0)),
+            ), row=2, col=1)
+            fig_dd.add_trace(go.Scatter(
+                x=fh[dc], y=fh["avg_vol_20d"],
+                mode="lines", line=dict(color="#f59e0b", dash="dot", width=1.5),
+            ), row=2, col=1)
+            flow_c = ["#16a34a" if v >= 0 else "#dc2626" for v in fh["flow_proxy"].fillna(0)]
+            fig_dd.add_trace(go.Bar(
+                x=fh[dc], y=fh["flow_proxy"],
+                marker=dict(color=flow_c, opacity=0.8, line=dict(width=0)),
+            ), row=3, col=1)
+            for r in [1,2,3]:
+                fig_dd.update_xaxes(showgrid=False, color=TICK_COLOR, zeroline=False,
+                                     tickfont=dict(size=9,color=TICK_COLOR), row=r, col=1)
+                fig_dd.update_yaxes(showgrid=True, gridcolor=GRID_COLOR, color=TICK_COLOR,
+                                     tickfont=dict(size=9), zeroline=False, row=r, col=1)
+            fig_dd.update_layout(height=480, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                                  margin=dict(l=4,r=4,t=30,b=4), showlegend=False,
+                                  hovermode="x unified",
+                                  font=dict(color=TICK_COLOR, size=10))
+            st.plotly_chart(fig_dd, use_container_width=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — FIXED INCOME
+# ══════════════════════════════════════════════════════════════════════════════
+with tabs[2]:
+    section("US Treasury Yield Curve")
+    yc_data = get_yield_curve()
+    yld_q   = get_bulk_quotes(list(YIELD_SYMBOLS.values()))
+
+    col_yc, col_yd = st.columns([3, 2])
+    with col_yc:
+        if yc_data is not None:
+            fig_yc = go.Figure()
+            fig_yc.add_trace(go.Scatter(
+                x=yc_data["maturity"], y=yc_data["yield"],
+                mode="lines+markers",
+                line=dict(color=PALETTE[0], width=2.5),
+                marker=dict(size=9, color=PALETTE[0],
+                            line=dict(color="#f4f5f7", width=2)),
+                fill="tozeroy", fillcolor="rgba(74,144,226,0.07)",
+                hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
+            ))
+            layout_yc = base_layout(280)
+            layout_yc["yaxis"]["ticksuffix"] = "%"
+            layout_yc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
+            fig_yc.update_layout(**layout_yc)
+            st.plotly_chart(fig_yc, use_container_width=True)
+
+    with col_yd:
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        for label, sym in YIELD_SYMBOLS.items():
+            q = yld_q.get(sym)
+            stat_card(label, f"{q['price']:.3f}%" if q else "—",
+                      q.get("pct_change") if q else None)
+
+    # 10Y history
+    section("10-Year Treasury — 3 Month")
+    tnx = get_history("^TNX", "3mo")
+    fig_tnx = line_chart(tnx, title="US 10Y Yield (%)", color=PALETTE[0], height=240, yformat="%")
+    if fig_tnx: st.plotly_chart(fig_tnx, use_container_width=True)
+
+    # Spread
+    section("Yield Spread: 10Y – 5Y (Inversion Watch)")
+    fvx = get_history("^FVX","3mo")
+    tnx2 = get_history("^TNX","3mo")
+    if fvx is not None and tnx2 is not None:
+        spread = (tnx2["Close"] - fvx["Close"]).dropna()
+        sdf = spread.reset_index(); sdf.columns = ["Date","Spread"]
+        sc = ["#16a34a" if v >= 0 else "#dc2626" for v in sdf["Spread"]]
+        fig_sp = go.Figure(go.Bar(x=sdf["Date"], y=sdf["Spread"],
+                                   marker=dict(color=sc, opacity=0.8, line=dict(width=0))))
+        fig_sp.add_hline(y=0, line_dash="dot", line_color="#2d3142", opacity=0.8)
+        layout_sp = base_layout(200, dict(l=4,r=4,t=4,b=4))
+        layout_sp["yaxis"]["ticksuffix"] = "%"
+        fig_sp.update_layout(**layout_sp)
+        st.plotly_chart(fig_sp, use_container_width=True)
+
+    section("Bond ETF Performance")
+    bond_map = {v["name"]: k for k, v in ETF_UNIVERSE["Fixed Income"].items()}
+    df_bonds = get_performance_summary(bond_map)
+    if not df_bonds.empty:
+        show = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_bonds.columns]
+        st.dataframe(style_df(df_bonds[show]), use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — COMMODITIES
+# ══════════════════════════════════════════════════════════════════════════════
+with tabs[3]:
+    comm_tabs = st.tabs(list(COMMODITIES.keys()) + ["📊 Tümü"])
+
+    for ci, (cat, items) in enumerate(COMMODITIES.items()):
+        with comm_tabs[ci]:
+            section(cat)
+            cq = get_bulk_quotes(list(items.values()))
+
+            # Metric row
+            cols = st.columns(min(5, len(items)))
+            for i, (name, sym) in enumerate(items.items()):
+                q = cq.get(sym)
+                with cols[i % 5]:
+                    stat_card(name, fmt_price(q["price"]) if q else "—",
+                              q.get("pct_change") if q else None)
+
+            # Charts for top 4
+            chart_items = list(items.items())[:4]
+            if chart_items:
+                ch_cols = st.columns(len(chart_items))
+                for i, (name, sym) in enumerate(chart_items):
+                    h = get_history(sym, "3mo")
+                    with ch_cols[i]:
+                        q = cq.get(sym)
+                        pct = q.get("pct_change") if q else 0
+                        color = "#16a34a" if (pct or 0) >= 0 else "#dc2626"
+                        fig = line_chart(h, title=name, color=color, height=200)
+                        if fig: st.plotly_chart(fig, use_container_width=True)
+
+    with comm_tabs[-1]:
+        section("All Commodities")
+        all_c = {n: s for cat, items in COMMODITIES.items() for n, s in items.items()}
+        df_all = get_performance_summary(all_c)
+        if not df_all.empty:
+            show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_all.columns]
+            st.dataframe(style_df(df_all[show]), use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — CURRENCIES
+# ══════════════════════════════════════════════════════════════════════════════
+with tabs[4]:
+    fx_tabs = st.tabs(["Majors", "Emerging Markets", "📊 FX Heatmap"])
+
+    for fi, (cat, items) in enumerate(CURRENCIES.items()):
+        with fx_tabs[fi]:
+            section(cat)
+            fq = get_bulk_quotes(list(items.values()))
+            cols = st.columns(min(4, len(items)))
+            for i, (name, sym) in enumerate(items.items()):
+                q = fq.get(sym)
+                dec = 4 if "/" in name and "USD" not in name[:3] else 3
+                with cols[i % 4]:
+                    stat_card(name, fmt_price(q["price"], dec) if q else "—",
+                              q.get("pct_change") if q else None)
+
+            df_fx = get_performance_summary(items)
+            if not df_fx.empty:
+                show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_fx.columns]
+                st.dataframe(style_df(df_fx[show]), use_container_width=True, hide_index=True)
+
+    with fx_tabs[-1]:
+        section("FX vs USD — 1D % Change")
+        all_fx = {n: s for cat, items in CURRENCIES.items() for n, s in items.items()}
+        fqa = get_bulk_quotes(list(all_fx.values()))
+        hrows = [{"Pair":n,"1D %":fqa[s]["pct_change"],"Price":fqa[s]["price"]}
+                 for n,s in all_fx.items() if s in fqa and fqa[s].get("pct_change") is not None]
+        if hrows:
+            dfh = pd.DataFrame(hrows).sort_values("1D %")
+            hc = ["#16a34a" if v>=0 else "#dc2626" for v in dfh["1D %"]]
+            fig_fxh = go.Figure(go.Bar(
+                x=dfh["1D %"], y=dfh["Pair"], orientation="h",
+                marker=dict(color=hc, opacity=0.85, line=dict(width=0)),
+                text=[fmt_pct(v) for v in dfh["1D %"]],
+                textfont=dict(size=9,color="#6b7494",family="JetBrains Mono"),
+                textposition="outside",
+            ))
+            layout_fxh = base_layout(max(380, len(dfh)*28), dict(l=4,r=70,t=4,b=4))
+            layout_fxh["xaxis"]["ticksuffix"] = "%"
+            layout_fxh["bargap"] = 0.3
+            fig_fxh.update_layout(**layout_fxh)
+            st.plotly_chart(fig_fxh, use_container_width=True)
+
+    section("DXY Dollar Index — 3 Month")
+    dxy = get_history("DX-Y.NYB","3mo")
+    dxy_q = get_bulk_quotes(["DX-Y.NYB"]).get("DX-Y.NYB")
+    color_dxy = "#16a34a" if (dxy_q or {}).get("pct_change",0) >= 0 else "#dc2626"
+    fig_dxy = line_chart(dxy, title="DXY", color=color_dxy, height=240)
+    if fig_dxy: st.plotly_chart(fig_dxy, use_container_width=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 6 — CRYPTO
+# ══════════════════════════════════════════════════════════════════════════════
+with tabs[5]:
+    section("Crypto Markets")
+    cq2 = get_bulk_quotes(list(CRYPTO.values()))
+    cr_cols = st.columns(4)
+    for i, (name, sym) in enumerate(CRYPTO.items()):
+        q = cq2.get(sym)
+        with cr_cols[i % 4]:
+            stat_card(name, fmt_price(q["price"],0) if q else "—",
+                      q.get("pct_change") if q else None)
+
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    c_btc, c_eth = st.columns(2)
+    with c_btc:
+        section("Bitcoin — 3 Month")
+        btc_h = get_history("BTC-USD","3mo")
+        fig_btc = candle_chart(btc_h, "BTC/USD", height=360)
+        if fig_btc: st.plotly_chart(fig_btc, use_container_width=True)
+
+    with c_eth:
+        section("Ethereum — 3 Month")
+        eth_h = get_history("ETH-USD","3mo")
+        eth_q = cq2.get("ETH-USD")
+        ec = "#16a34a" if (eth_q or {}).get("pct_change",0)>=0 else "#dc2626"
+        fig_eth = line_chart(eth_h, title="ETH/USD", color=ec, height=360)
+        if fig_eth: st.plotly_chart(fig_eth, use_container_width=True)
+
+    section("Crypto Performance Table")
+    df_cr = get_performance_summary(CRYPTO)
+    if not df_cr.empty:
+        show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %","Volume"] if c in df_cr.columns]
+        st.dataframe(style_df(df_cr[show]), use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 7 — SENTIMENT
+# ══════════════════════════════════════════════════════════════════════════════
+with tabs[6]:
+    section("Market Sentiment Indicators")
+
+    SENT = {"VIX": "^VIX", "VVIX": "^VVIX", "S&P 500":"^GSPC",
+            "Gold":"GC=F", "WTI":"CL=F", "DXY":"DX-Y.NYB",
+            "TLT (Safe)":"TLT", "HYG (Risk)":"HYG"}
+    sq = get_bulk_quotes(list(SENT.values()))
+    sc = st.columns(4)
+    for i, (label, sym) in enumerate(SENT.items()):
+        q = sq.get(sym)
+        with sc[i % 4]:
+            stat_card(label, fmt_price(q["price"]) if q else "—",
+                      q.get("pct_change") if q else None)
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # VIX Gauge
+    vix_q = sq.get("^VIX")
+    if vix_q and vix_q.get("price"):
+        vv = vix_q["price"]
+        labels = [(0,15,"Extreme Greed"),(15,20,"Greed"),(20,25,"Neutral"),
+                  (25,35,"Fear"),(35,80,"Extreme Fear")]
+        lvl = next((l for lo,hi,l in labels if lo<=vv<hi), "Extreme Fear")
+        gauge_col = {"Extreme Greed":"#16a34a","Greed":"#4ade80",
+                     "Neutral":"#f59e0b","Fear":"#f97316","Extreme Fear":"#dc2626"}[lvl]
+
+        col_gauge, col_vix = st.columns([1,2])
+        with col_gauge:
+            section(f"VIX Gauge — {lvl}")
+            fig_g = go.Figure(go.Indicator(
+                mode="gauge+number+delta",
+                value=vv,
+                delta={"reference": vix_q.get("prev_close", vv),
+                       "valueformat":".2f",
+                       "increasing":{"color":"#dc2626"},
+                       "decreasing":{"color":"#16a34a"}},
+                number={"font":{"size":36,"color":gauge_col,"family":"JetBrains Mono"},
+                        "valueformat":".2f"},
+                title={"text": f"<b>{lvl}</b>",
+                       "font":{"size":13,"color":gauge_col}},
+                gauge={
+                    "axis":{"range":[0,80],"tickcolor":TICK_COLOR,
+                             "tickfont":{"color":TICK_COLOR,"size":9}},
+                    "bar":{"color":gauge_col,"thickness":0.25},
+                    "bgcolor":"#f9fafb",
+                    "bordercolor":"#f9fafb",
+                    "steps":[
+                        {"range":[0,15],  "color":"rgba(0,212,106,0.1)"},
+                        {"range":[15,20], "color":"rgba(52,211,153,0.06)"},
+                        {"range":[20,25], "color":"rgba(240,180,41,0.06)"},
+                        {"range":[25,35], "color":"rgba(251,146,60,0.08)"},
+                        {"range":[35,80], "color":"rgba(255,75,110,0.1)"},
+                    ],
+                    "threshold":{"line":{"color":"#e8eaf0","width":3},
+                                 "thickness":0.8,"value":vv},
+                },
+            ))
+            fig_g.update_layout(height=260, margin=dict(l=20,r=20,t=10,b=10),
+                                 paper_bgcolor=CHART_BG,
+                                 font=dict(color=TICK_COLOR, family="Inter"))
+            st.plotly_chart(fig_g, use_container_width=True)
+
+        with col_vix:
+            section("VIX — 1 Year History")
+            vix_h = get_history("^VIX","1y")
+            if vix_h is not None:
+                vdf = vix_h.reset_index(); vdf.columns=[str(c) for c in vdf.columns]
+                dc = vdf.columns[0]
+                fig_vh = go.Figure()
+                # Zones
+                for y0,y1,c in [(0,15,"rgba(0,212,106,0.04)"),
+                                  (15,20,"rgba(52,211,153,0.02)"),
+                                  (25,35,"rgba(251,146,60,0.04)"),
+                                  (35,100,"rgba(255,75,110,0.06)")]:
+                    fig_vh.add_hrect(y0=y0,y1=y1,fillcolor=c,line_width=0)
+                fig_vh.add_trace(go.Scatter(
+                    x=vdf[dc], y=vdf["Close"], mode="lines",
+                    line=dict(color="#f59e0b",width=2),
+                    fill="tozeroy", fillcolor="rgba(240,180,41,0.05)",
+                    hovertemplate="VIX: %{y:.2f}<extra></extra>",
+                ))
+                fig_vh.add_hline(y=20, line_dash="dot", line_color="#2d3142",
+                                  annotation_text="20", annotation_font_color=TICK_COLOR,
+                                  annotation_font_size=9)
+                layout_vh = base_layout(260)
+                fig_vh.update_layout(**layout_vh)
+                st.plotly_chart(fig_vh, use_container_width=True)
+
+    # Risk-On / Risk-Off
+    section("Risk-On / Risk-Off Ratio (EEM ÷ TLT)")
+    eem_h = get_history("EEM","1y")
+    tlt_h = get_history("TLT","1y")
+    if eem_h is not None and tlt_h is not None:
+        ratio = (eem_h["Close"] / tlt_h["Close"]).dropna()
+        rdf = ratio.reset_index(); rdf.columns=["Date","Ratio"]
+        col_r = "#16a34a" if rdf["Ratio"].iloc[-1] >= rdf["Ratio"].iloc[-2] else "#dc2626"
+        fig_ro = line_chart(rdf, "Ratio", "EEM/TLT (Rising = Risk-On)", col_r, 220)
+        if fig_ro: st.plotly_chart(fig_ro, use_container_width=True)
+
+    # Gold / S&P
+    section("Gold ÷ S&P 500 Ratio (Rising = Risk-Off / Safe Haven)")
+    gold_h = get_history("GC=F","1y")
+    spx_h  = get_history("^GSPC","1y")
+    if gold_h is not None and spx_h is not None:
+        gr = (gold_h["Close"] / spx_h["Close"]).dropna()
+        gdf = gr.reset_index(); gdf.columns=["Date","Ratio"]
+        col_g = "#16a34a" if gdf["Ratio"].iloc[-1] >= gdf["Ratio"].iloc[-2] else PALETTE[0]
+        fig_gr = line_chart(gdf,"Ratio","Gold/S&P Ratio","#fbbf24",220)
+        if fig_gr: st.plotly_chart(fig_gr, use_container_width=True)
+
+    # Normalised YTD comparison
+    section("YTD Normalised Performance (Base = 100)")
+    COMPARE = {"S&P 500":"^GSPC","Gold":"GC=F","Bitcoin":"BTC-USD",
+               "TLT (Bonds)":"TLT","DXY":"DX-Y.NYB","WTI Oil":"CL=F"}
+    ch = get_multi_history(list(COMPARE.values()), "ytd")
+    if ch is not None:
+        fig_cmp = go.Figure()
+        for i,(name,sym) in enumerate(COMPARE.items()):
+            col = sym if sym in ch.columns else None
+            if col is None: continue
+            s = ch[col].dropna()
+            if len(s) < 2: continue
+            norm = s / s.iloc[0] * 100
+            fig_cmp.add_trace(go.Scatter(
+                x=norm.index, y=norm.values, mode="lines", name=name,
+                line=dict(color=PALETTE[i%len(PALETTE)], width=2),
+                hovertemplate=f"{name}: %{{y:.1f}}<extra></extra>",
+            ))
+        fig_cmp.add_hline(y=100, line_dash="dot", line_color="#2d3142", opacity=0.8)
+        layout_cmp = base_layout(320)
+        layout_cmp["showlegend"] = True
+        layout_cmp["legend"] = dict(
+            font=dict(color="#8891a5",size=10,family="Inter"),
+            bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0.06)",
+            borderwidth=1, x=0.01, y=0.99,
+        )
+        layout_cmp["yaxis"]["ticksuffix"] = ""
+        fig_cmp.update_layout(**layout_cmp)
+        st.plotly_chart(fig_cmp, use_container_width=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FOOTER + AUTO-REFRESH
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown(f"""
+<div class="dash-footer">
+  DATA: Yahoo Finance (yfinance) &nbsp;·&nbsp;
+  ETF Flow Proxy: Hacim-bazlı tahmini, resmi creation/redemption verisi değil &nbsp;·&nbsp;
+  Auto-refresh: {AUTO_REFRESH_SECS}s &nbsp;·&nbsp;
+  {now.strftime('%Y-%m-%d %H:%M UTC')}
+</div>
+""", unsafe_allow_html=True)
+
+try:
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=AUTO_REFRESH_SECS * 1000, key="gmr")
+except ImportError:
+    pass
