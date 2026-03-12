@@ -387,6 +387,82 @@ def tv_chart(yf_symbol: str, height: int = 380, interval: str = "D",
     stc.html(html, height=height + 8, scrolling=False)
 
 
+_BINANCE_WS = {
+    "BTC-USD": "btcusdt", "ETH-USD": "ethusdt", "BNB-USD": "bnbusdt",
+    "SOL-USD": "solusdt", "XRP-USD": "xrpusdt", "ADA-USD": "adausdt",
+    "AVAX-USD": "avaxusdt", "DOGE-USD": "dogeusdt",
+}
+
+def crypto_live_cards(selected_sym: str, crypto_map: dict) -> None:
+    """
+    Render 8 clickable crypto price cards with live Binance WebSocket prices.
+    Clicking a card navigates the parent Streamlit frame to ?crypto=SYM.
+    """
+    streams = "/".join(
+        f"{_BINANCE_WS[s]}@miniTicker"
+        for s in crypto_map.values() if s in _BINANCE_WS
+    )
+    cards = ""
+    for name, sym in crypto_map.items():
+        ws_sym = _BINANCE_WS.get(sym)
+        if not ws_sym:
+            continue
+        sel = (sym == selected_sym)
+        bdr = ("2px solid #7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.12);"
+               if sel else "1px solid #e9eaec;")
+        cards += f"""
+        <div class="cc" style="border:{bdr}" onclick="nav('{sym}')">
+          <div class="cl">{name}</div>
+          <div class="cp" id="p_{ws_sym}">—</div>
+          <div class="cd" id="d_{ws_sym}">—</div>
+        </div>"""
+
+    html = f"""<!DOCTYPE html><html><head><style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+     background:transparent;padding:4px 2px}}
+.g{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}}
+.cc{{background:#fff;border-radius:12px;padding:13px 15px;
+    box-shadow:0 1px 3px rgba(0,0,0,.05);cursor:pointer;
+    transition:box-shadow .15s,transform .12s;user-select:none}}
+.cc:hover{{box-shadow:0 4px 10px rgba(0,0,0,.09);transform:translateY(-1px)}}
+.cl{{font-size:10px;color:#9ca3af;text-transform:uppercase;
+    letter-spacing:.5px;margin-bottom:5px}}
+.cp{{font-size:16px;font-weight:700;color:#1a1a2e;
+    letter-spacing:-.3px;margin-bottom:2px}}
+.cd{{font-size:11px;font-family:monospace;color:#6b7280}}
+</style></head><body>
+<div class="g">{cards}</div>
+<script>
+function nav(sym){{
+  var url=(window.parent.location.pathname||'/')+'?crypto='+sym;
+  try{{window.parent.location.href=url;return;}}catch(e){{}}
+  try{{window.open(url,'_top');}}catch(e){{}}
+}}
+var ws=new WebSocket('wss://stream.binance.com:9443/stream?streams={streams}');
+ws.onmessage=function(e){{
+  var d=JSON.parse(e.data).data;
+  if(!d||!d.s)return;
+  var s=d.s.toLowerCase();
+  var p=parseFloat(d.c),pct=parseFloat(d.P);
+  var pEl=document.getElementById('p_'+s);
+  var dEl=document.getElementById('d_'+s);
+  if(!pEl||!dEl)return;
+  var ps;
+  if(p>=10000)ps=p.toLocaleString('en-US',{{maximumFractionDigits:0}});
+  else if(p>=1)ps=p.toLocaleString('en-US',{{minimumFractionDigits:2,maximumFractionDigits:2}});
+  else if(p>=0.01)ps=p.toFixed(4);
+  else ps=p.toFixed(6);
+  pEl.textContent='$'+ps;
+  var a=pct>=0?'▲':'▼',sg=pct>=0?'+':'';
+  dEl.textContent=a+' '+sg+pct.toFixed(2)+'%';
+  dEl.style.color=pct>=0?'#16a34a':'#dc2626';
+}};
+ws.onerror=function(){{}};
+</script></body></html>"""
+    stc.html(html, height=192, scrolling=False)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1259,42 +1335,19 @@ with tabs[4]:
 # TAB 6 — CRYPTO
 # ══════════════════════════════════════════════════════════════════════════════
 with tabs[5]:
-    if "crypto_chart_sym" not in st.session_state:
-        st.session_state["crypto_chart_sym"] = "BTC-USD"
+    # Selected coin: prefer query param (set by card click), fall back to session state
+    _qp = st.query_params.get("crypto", "")
+    if _qp in CRYPTO.values():
+        sel_sym = _qp
+        st.session_state["crypto_chart_sym"] = _qp
+    else:
+        sel_sym = st.session_state.get("crypto_chart_sym", "BTC-USD")
 
     section("Crypto Markets")
-    cq2 = get_bulk_quotes(list(CRYPTO.values()))
-    cr_cols = st.columns(4)
-    for i, (name, sym) in enumerate(CRYPTO.items()):
-        q = cq2.get(sym)
-        price_str = fmt_price(q["price"]) if q else "—"
-        delta = q.get("pct_change") if q else None
-        is_sel = (st.session_state["crypto_chart_sym"] == sym)
-        if delta is not None:
-            arrow = "▲" if delta >= 0 else "▼"
-            sign  = "+" if delta >= 0 else ""
-            cc    = "pos" if delta >= 0 else "neg"
-            d_html = f'<div class="stat-delta {cc}">{arrow} {sign}{delta:.2f}%</div>'
-        else:
-            d_html = ""
-        sel_cls = " stat-card-sel" if is_sel else ""
-        with cr_cols[i % 4]:
-            st.markdown(f"""
-            <div class="crypto-card-wrap">
-              <div class="stat-card{sel_cls}">
-                <div class="stat-label">{name}</div>
-                <div class="stat-value">{price_str}</div>
-                {d_html}
-              </div>
-            """, unsafe_allow_html=True)
-            if st.button(" ", key=f"cr_sel_{sym}", use_container_width=True):
-                st.session_state["crypto_chart_sym"] = sym
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+    crypto_live_cards(sel_sym, CRYPTO)
 
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-    sel_sym  = st.session_state["crypto_chart_sym"]
     sel_name = next((n for n, s in CRYPTO.items() if s == sel_sym), "Bitcoin")
     section(sel_name)
     tv_chart(sel_sym, height=440, interval="D")
