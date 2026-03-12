@@ -143,9 +143,12 @@ def get_etf_info(ticker: str) -> dict:
     try:
         t = yf.Ticker(ticker)
         info = t.info
+        # totalAssets is primary; netAssets is fallback (both represent AUM)
+        total_assets = info.get("totalAssets") or info.get("netAssets")
+        expense_ratio = info.get("netExpenseRatio") or info.get("annualReportExpenseRatio")
         return {
-            "total_assets": info.get("totalAssets"),
-            "expense_ratio": info.get("annualReportExpenseRatio"),
+            "total_assets": total_assets,
+            "expense_ratio": expense_ratio,
             "shares_outstanding": info.get("sharesOutstanding"),
             "avg_volume": info.get("averageVolume"),
             "avg_volume_10d": info.get("averageVolume10days"),
