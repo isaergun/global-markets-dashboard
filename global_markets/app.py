@@ -1003,30 +1003,10 @@ with tabs[2]:
             for tenor in x_labels:
                 stat_card(f"JGB {tenor}", f"{jp_yields[tenor]:.3f}%")
 
-        # ── 10Y JGB historical chart ──────────────────────────────────────────
-        is_proxy = jp_hist10 is not None and getattr(jp_hist10, "name", "") == "Yield"
-        hist_title = "JGB 10Y Yield — Historical" + (" (estimated via 1482.T ETF)" if is_proxy else "")
-        section(hist_title)
-        if jp_hist10 is not None and not jp_hist10.empty:
-            jh_df = jp_hist10.reset_index()
-            jh_df.columns = ["Date", "Yield"]
-            fig_j10 = go.Figure(go.Scatter(
-                x=jh_df["Date"], y=jh_df["Yield"],
-                mode="lines", line=dict(color="#e11d48", width=2),
-                fill="tozeroy", fillcolor="rgba(225,29,72,0.06)",
-                hovertemplate="%{x|%b %d, %Y}: %{y:.3f}%<extra></extra>",
-            ))
-            ly10 = base_layout(240)
-            ly10["yaxis"]["ticksuffix"] = "%"
-            fig_j10.update_layout(**ly10)
-            st.plotly_chart(fig_j10, use_container_width=True, key="jp_10y_hist")
-            if is_proxy:
-                st.caption("Estimated from 1482.T ETF price using inverse price-yield relationship. Directional trend is accurate; basis points are approximate.")
-
-        # ── US vs Japan 10Y comparison ────────────────────────────────────────
-        section("US vs Japan — 10Y Yield Comparison (3 Month)")
+        # ── US 10Y history + Japan 10Y reference level ───────────────────────
+        section("US vs Japan — 10Y Yield (3 Month)")
         us_hist = get_history("^TNX", "3mo")
-        if us_hist is not None:
+        if us_hist is not None and jp_10y:
             fig_cmp = go.Figure()
             fig_cmp.add_trace(go.Scatter(
                 x=us_hist.index, y=us_hist["Close"].dropna(),
@@ -1034,20 +1014,20 @@ with tabs[2]:
                 line=dict(color=PALETTE[0], width=2),
                 hovertemplate="US 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
             ))
-            if jp_hist10 is not None and not jp_hist10.empty:
-                jp_ser = jp_hist10.dropna()
-                fig_cmp.add_trace(go.Scatter(
-                    x=jp_ser.index, y=jp_ser,
-                    name="JP 10Y", mode="lines",
-                    line=dict(color="#e11d48", width=2),
-                    hovertemplate="JP 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
-                ))
+            # JP 10Y as horizontal reference line (FRED snapshot, no reliable daily history)
+            fig_cmp.add_hline(
+                y=jp_10y, line_dash="dash", line_color="#e11d48", line_width=1.5,
+                annotation_text=f"JP 10Y: {jp_10y:.3f}%",
+                annotation_position="bottom right",
+                annotation_font=dict(color="#e11d48", size=11),
+            )
             ly_cmp = base_layout(260)
             ly_cmp["yaxis"]["ticksuffix"] = "%"
             ly_cmp["showlegend"] = True
             ly_cmp["legend"] = dict(orientation="h", x=0, y=1.12, font=dict(size=11))
             fig_cmp.update_layout(**ly_cmp)
             st.plotly_chart(fig_cmp, use_container_width=True, key="jp_us_cmp")
+            st.caption(f"JP 10Y shown as current level ({jp_10y:.3f}%) from {jp_source}. Daily JGB history not available from free sources.")
 
         # ── Japan bond ETF performance ────────────────────────────────────────
         section("Japan Bond ETF Performance")

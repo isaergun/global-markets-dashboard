@@ -278,28 +278,6 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
                 yields[k] = round(v * scale, 3)
         return yields
 
-    def _etf_yield_proxy(anchor_yield: float) -> "pd.Series | None":
-        """
-        Construct approximate 10Y JGB yield history from 1482.T ETF price.
-        Uses inverse price-yield relationship:  yield(t) ≈ anchor × latest_price / price(t)
-        Uses yf.Ticker directly — NOT get_history() — to avoid nested @st.cache_data issues.
-        """
-        try:
-            # Direct yfinance call, not the cached wrapper, to avoid nested cache context
-            hist = yf.Ticker("1482.T").history(period="1y", auto_adjust=True)
-            if hist is None or hist.empty:
-                return None
-            prices = hist["Close"].dropna()
-            if len(prices) < 5:
-                return None
-            latest_price = float(prices.iloc[-1])
-            proxy = (anchor_yield * latest_price / prices).rename("Yield")
-            # Sanity check: keep only values in realistic JGB range
-            proxy = proxy[(proxy > 0) & (proxy < 5)]
-            return proxy if not proxy.empty else None
-        except Exception:
-            return None
-
     yields: dict = {}
     hist10 = None
 
@@ -349,10 +327,7 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
 
     if len(yields) >= 1:
         _fill_curve(yields)
-        # Always use ETF proxy for history — FRED is monthly with ~2M lag so chart cuts off.
-        # ETF proxy gives daily data through today; FRED used only for current yield values.
-        hist10 = _etf_yield_proxy(yields.get("10Y", approx_base["10Y"]))
-        return yields, hist10, "FRED snapshot / 1482.T trend"
+        return yields, None, "FRED (St. Louis Fed)"
 
     # ── 2. Stooq via pandas_datareader ────────────────────────────────────────
     end_dt   = datetime.now()
@@ -380,10 +355,8 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
     except Exception:
         pass
 
-    # ── 3. Static fallback — yield curve from BOJ approx, history from 1482.T ─
-    anchor = approx_base["10Y"]
-    hist10 = _etf_yield_proxy(anchor)
-    return approx_base.copy(), hist10, "Static (BOJ approx)"
+    # ── 3. Static fallback ────────────────────────────────────────────────────
+    return approx_base.copy(), None, "Static (BOJ approx)"
 
 
 @st.cache_data(ttl=600, show_spinner=False)
