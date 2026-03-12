@@ -952,7 +952,7 @@ with tabs[2]:
 
     # ── Japan Fixed Income ───────────────────────────────────────────────────
     with fi_tabs[1]:
-        jp_yields, jp_hist10, jp_source = get_japan_yield_curve()
+        jp_yields, _jp_hist, jp_source = get_japan_yield_curve()
         us_tnx_q = get_quote("^TNX")
 
         jp_10y = jp_yields.get("10Y")
@@ -1002,32 +1002,6 @@ with tabs[2]:
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
             for tenor in x_labels:
                 stat_card(f"JGB {tenor}", f"{jp_yields[tenor]:.3f}%")
-
-        # ── US 10Y history + Japan 10Y reference level ───────────────────────
-        section("US vs Japan — 10Y Yield (3 Month)")
-        us_hist = get_history("^TNX", "3mo")
-        if us_hist is not None and jp_10y:
-            fig_cmp = go.Figure()
-            fig_cmp.add_trace(go.Scatter(
-                x=us_hist.index, y=us_hist["Close"].dropna(),
-                name="US 10Y", mode="lines",
-                line=dict(color=PALETTE[0], width=2),
-                hovertemplate="US 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
-            ))
-            # JP 10Y as horizontal reference line (FRED snapshot, no reliable daily history)
-            fig_cmp.add_hline(
-                y=jp_10y, line_dash="dash", line_color="#e11d48", line_width=1.5,
-                annotation_text=f"JP 10Y: {jp_10y:.3f}%",
-                annotation_position="bottom right",
-                annotation_font=dict(color="#e11d48", size=11),
-            )
-            ly_cmp = base_layout(260)
-            ly_cmp["yaxis"]["ticksuffix"] = "%"
-            ly_cmp["showlegend"] = True
-            ly_cmp["legend"] = dict(orientation="h", x=0, y=1.12, font=dict(size=11))
-            fig_cmp.update_layout(**ly_cmp)
-            st.plotly_chart(fig_cmp, use_container_width=True, key="jp_us_cmp")
-            st.caption(f"JP 10Y shown as current level ({jp_10y:.3f}%) from {jp_source}. Daily JGB history not available from free sources.")
 
         # ── Japan bond ETF performance ────────────────────────────────────────
         section("Japan Bond ETF Performance")
