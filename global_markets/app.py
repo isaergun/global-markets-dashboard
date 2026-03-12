@@ -322,17 +322,17 @@ _TV_SYM = {
     # Rates
     "^TNX": "TVC:US10Y",    "^TYX": "TVC:US30Y",
     "^FVX": "TVC:US05Y",    "^IRX": "TVC:US03MY",
-    # Commodities
-    "GC=F": "TVC:GOLD",     "SI=F": "TVC:SILVER",
-    "CL=F": "NYMEX:CL1!",   "NG=F": "NYMEX:NG1!",
-    "HG=F": "COMEX:HG1!",   "ZW=F": "CBOT:ZW1!",
-    "ZC=F": "CBOT:ZC1!",    "ZS=F": "CBOT:ZS1!",
-    "CC=F": "ICEUS:CC1!",   "KC=F": "ICEUS:KC1!",
-    "SB=F": "ICEUS:SB1!",   "PL=F": "NYMEX:PL1!",
-    "PA=F": "NYMEX:PA1!",   "BZ=F": "TVC:UKOIL",
-    "HO=F": "NYMEX:HO1!",   "RB=F": "NYMEX:RB1!",
-    "ALI=F":"COMEX:ALI1!",  "CT=F": "ICEUS:CT1!",
-    "OJ=F": "ICEUS:OJ1!",   "LBS=F":"CME:LBS1!",
+    # Commodities — TVC free symbols only
+    "GC=F": "TVC:GOLD",        "SI=F": "TVC:SILVER",
+    "PL=F": "TVC:PLATINUM",    "PA=F": "TVC:PALLADIUM",
+    "CL=F": "TVC:USOIL",       "BZ=F": "TVC:UKOIL",
+    "NG=F": "TVC:NATURALGAS",  "HO=F": "TVC:HEATING",
+    "RB=F": "TVC:GASOLINE",    "HG=F": "TVC:COPPER",
+    "ALI=F":"TVC:ALUMINUM",    "ZW=F": "TVC:WHEAT",
+    "ZC=F": "TVC:CORN",        "ZS=F": "TVC:SOYBEAN",
+    "KC=F": "TVC:COFFEE",      "SB=F": "TVC:SUGAR",
+    "CT=F": "TVC:COTTON",      "CC=F": "TVC:COCOA",
+    # OJ=F, LBS=F — no free TVC equivalent, no chart shown
     # Crypto
     "BTC-USD":  "BINANCE:BTCUSDT",  "ETH-USD":  "BINANCE:ETHUSDT",
     "BNB-USD":  "BINANCE:BNBUSDT",  "SOL-USD":  "BINANCE:SOLUSDT",
