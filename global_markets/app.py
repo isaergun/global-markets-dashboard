@@ -329,7 +329,10 @@ _TV_SYM = {
     "ZC=F": "CBOT:ZC1!",    "ZS=F": "CBOT:ZS1!",
     "CC=F": "ICEUS:CC1!",   "KC=F": "ICEUS:KC1!",
     "SB=F": "ICEUS:SB1!",   "PL=F": "NYMEX:PL1!",
-    "PA=F": "NYMEX:PA1!",
+    "PA=F": "NYMEX:PA1!",   "BZ=F": "TVC:UKOIL",
+    "HO=F": "NYMEX:HO1!",   "RB=F": "NYMEX:RB1!",
+    "ALI=F":"COMEX:ALI1!",  "CT=F": "ICEUS:CT1!",
+    "OJ=F": "ICEUS:OJ1!",   "LBS=F":"CME:LBS1!",
     # Crypto
     "BTC-USD":  "BINANCE:BTCUSDT",  "ETH-USD":  "BINANCE:ETHUSDT",
     "BNB-USD":  "BINANCE:BNBUSDT",  "SOL-USD":  "BINANCE:SOLUSDT",
@@ -1215,12 +1218,25 @@ with tabs[2]:
 with tabs[3]:
     comm_tabs = st.tabs(list(COMMODITIES.keys()) + ["📊 All"])
 
+    _COMM_ETF_MAP = {
+        "Energy":          {"US Oil Fund": "USO", "US Natural Gas Fund": "UNG",
+                            "Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
+        "Precious Metals": {"SPDR Gold Shares": "GLD", "iShares Silver Trust": "SLV",
+                            "Gold Miners ETF": "GDX", "Junior Gold Miners": "GDXJ"},
+        "Base Metals":     {"US Copper Index": "CPER", "Invesco Commodity": "PDBC"},
+        "Agricultural":    {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
+        "Softs":           {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
+    }
+
     for ci, (cat, items) in enumerate(COMMODITIES.items()):
+        _sk = f"comm_chart_{ci}"
+        if _sk not in st.session_state:
+            st.session_state[_sk] = list(items.values())[0]
+
         with comm_tabs[ci]:
             section(cat)
             cq = get_bulk_quotes(list(items.values()))
 
-            # Metric row
             cols = st.columns(min(5, len(items)))
             for i, (name, sym) in enumerate(items.items()):
                 q = cq.get(sym)
@@ -1228,29 +1244,21 @@ with tabs[3]:
                     stat_card(name, fmt_price(q["price"]) if q else "—",
                               q.get("pct_change") if q else None)
 
-            # Charts for top 4
-            chart_items = list(items.items())[:4]
-            if chart_items:
-                ch_cols = st.columns(len(chart_items))
-                for i, (name, sym) in enumerate(chart_items):
-                    h = get_history(sym, "3mo")
-                    with ch_cols[i]:
-                        q = cq.get(sym)
-                        pct = q.get("pct_change") if q else 0
-                        color = "#16a34a" if (pct or 0) >= 0 else "#dc2626"
-                        fig = line_chart(h, title=name, color=color, height=200)
-                        if fig: st.plotly_chart(fig, use_container_width=True)
+            _dd_col, _ = st.columns([1, 3])
+            with _dd_col:
+                _names = list(items.keys())
+                _sel   = next((n for n, s in items.items()
+                               if s == st.session_state[_sk]), _names[0])
+                _pick  = st.selectbox("Chart", _names, index=_names.index(_sel),
+                                      key=f"comm_dd_{ci}", label_visibility="collapsed")
+                if items[_pick] != st.session_state[_sk]:
+                    st.session_state[_sk] = items[_pick]
+                    st.rerun()
 
-            # Relevant ETFs per category — {name: ticker} format for get_performance_summary
-            _COMM_ETF_MAP = {
-                "Energy":         {"US Oil Fund": "USO", "US Natural Gas Fund": "UNG",
-                                   "Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
-                "Precious Metals": {"SPDR Gold Shares": "GLD", "iShares Silver Trust": "SLV",
-                                    "Gold Miners ETF": "GDX", "Junior Gold Miners": "GDXJ"},
-                "Base Metals":    {"US Copper Index": "CPER", "Invesco Commodity": "PDBC"},
-                "Agricultural":   {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
-                "Softs":          {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
-            }
+            _csym = st.session_state[_sk]
+            if _csym in _TV_SYM:
+                tv_chart(_csym, height=420)
+
             etf_map_c = _COMM_ETF_MAP.get(cat)
             if etf_map_c:
                 section(f"{cat} — Related ETFs")
