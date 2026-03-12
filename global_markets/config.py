@@ -149,6 +149,7 @@ ETF_UNIVERSE = {
         "LQD": {"name": "iShares Corp Bond", "benchmark": "^TNX"},
         "TIP": {"name": "iShares TIPS Bond", "benchmark": "^TNX"},
         "EMB": {"name": "iShares EM Bond", "benchmark": "^TNX"},
+        "1482.T": {"name": "iShares Japan Govt Bond (JPY)", "benchmark": "^TNX"},
     },
     "Commodities": {
         "GLD": {"name": "SPDR Gold Shares", "benchmark": "GC=F"},

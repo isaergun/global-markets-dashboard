@@ -123,11 +123,11 @@ def get_multi_history(
             interval="1d",
             progress=False,
             auto_adjust=True,
-            group_by="ticker",
         )
         if data.empty:
             return None
-        closes = data["Close"]
+        # yfinance 1.2.0 always returns MultiIndex (Metric, Ticker)
+        closes = data["Close"] if "Close" in data else data.xs("Close", axis=1, level=0)
         # Normalise: always return a DataFrame with symbol-named columns
         if isinstance(closes, pd.Series):
             closes = closes.to_frame(name=symbols[0])

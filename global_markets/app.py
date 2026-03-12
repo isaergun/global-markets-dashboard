@@ -715,7 +715,7 @@ with tabs[1]:
     st.markdown(
         "<p style='font-size:11px;color:#2d3142;margin:-10px 0 12px'>"
         "Flow Proxy = (Volume − 20D Avg) × Price × sign(Return) &nbsp;|&nbsp; "
-        "Pozitif = tahmini net giriş baskısı, Negatif = çıkış baskısı."
+        "Positive = estimated net inflow pressure, Negative = outflow pressure."
         "</p>", unsafe_allow_html=True,
     )
 
@@ -725,7 +725,7 @@ with tabs[1]:
     etf_names = {t: ETF_UNIVERSE[etf_cat][t]["name"] for t in tickers}
 
     rows = []
-    with st.spinner(f"ETF verileri yükleniyor…"):
+    with st.spinner("Loading ETF data…"):
         for tk in tickers:
             fd   = compute_etf_flow_proxy(tk)
             info = get_etf_info(tk) if fd else {}
@@ -816,7 +816,7 @@ with tabs[1]:
 
         # ── Deep Dive ─────────────────────────────────────────────────────
         section("ETF Deep Dive")
-        sel = st.selectbox("ETF seç", tickers, key="etf_deep", label_visibility="collapsed")
+        sel = st.selectbox("Select ETF", tickers, key="etf_deep", label_visibility="collapsed")
         fd2 = compute_etf_flow_proxy(sel)
         if fd2 and "flow_history" in fd2:
             fh = fd2["flow_history"].reset_index()
@@ -896,6 +896,12 @@ with tabs[2]:
             q = yld_q.get(sym)
             stat_card(label, f"{q['price']:.3f}%" if q else "—",
                       q.get("pct_change") if q else None)
+        st.markdown(
+            "<p style='font-size:10px;color:#9ca3af;margin-top:8px'>"
+            "⚠ JP 10Y JGB yield not available via Yahoo Finance. "
+            "Japan Gov Bond ETF (1482.T) shown in Bond ETF Performance below."
+            "</p>", unsafe_allow_html=True,
+        )
 
     # 10Y history
     section("10-Year Treasury — 3 Month")
@@ -931,7 +937,7 @@ with tabs[2]:
 # TAB 4 — COMMODITIES
 # ══════════════════════════════════════════════════════════════════════════════
 with tabs[3]:
-    comm_tabs = st.tabs(list(COMMODITIES.keys()) + ["📊 Tümü"])
+    comm_tabs = st.tabs(list(COMMODITIES.keys()) + ["📊 All"])
 
     for ci, (cat, items) in enumerate(COMMODITIES.items()):
         with comm_tabs[ci]:
@@ -1208,7 +1214,7 @@ with tabs[6]:
 st.markdown(f"""
 <div class="dash-footer">
   DATA: Yahoo Finance (yfinance) &nbsp;·&nbsp;
-  ETF Flow Proxy: Hacim-bazlı tahmini, resmi creation/redemption verisi değil &nbsp;·&nbsp;
+  ETF Flow Proxy: Volume-based estimate, not official creation/redemption data &nbsp;·&nbsp;
   Auto-refresh: {AUTO_REFRESH_SECS}s &nbsp;·&nbsp;
   {now.strftime('%Y-%m-%d %H:%M UTC')}
 </div>
