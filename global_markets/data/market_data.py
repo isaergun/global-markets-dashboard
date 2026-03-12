@@ -386,54 +386,83 @@ def get_yield_curve() -> pd.DataFrame | None:
 
 @st.cache_data(ttl=600, show_spinner=False)
 def get_performance_summary(symbols_dict: dict, period: str = "1mo") -> pd.DataFrame:
-    """Compute performance table for a symbols dict {name: ticker}."""
+    """
+    Compute performance + flow proxy table for a symbols dict {name: ticker}.
+    Downloads 1Y OHLCV in one call to cover performance (1D/5D/1M/YTD) and
+    flow proxy (Flow 1D, Flow 5D) without nested cache calls.
+    Flow proxy = (Volume - 20D_avg_volume) × Close × sign(Return)
+    """
     rows = []
     all_syms = list(symbols_dict.values())
+    ytd_start = pd.Timestamp(datetime.now().year, 1, 1)
     try:
-        hist = get_multi_history(all_syms, period=period)
-        if hist is None:
+        raw = yf.download(
+            all_syms, period="1y", interval="1d",
+            progress=False, auto_adjust=True,
+        )
+        if raw.empty:
             return pd.DataFrame()
+
+        # yfinance 1.2 MultiIndex handling
+        close_df = raw["Close"] if "Close" in raw else raw.xs("Close", axis=1, level=0)
+        vol_df   = raw["Volume"] if "Volume" in raw else raw.xs("Volume", axis=1, level=0)
+        if isinstance(close_df, pd.Series):
+            close_df = close_df.to_frame(name=all_syms[0])
+        if isinstance(vol_df, pd.Series):
+            vol_df = vol_df.to_frame(name=all_syms[0])
+        close_df = close_df.dropna(how="all")
+        vol_df   = vol_df.dropna(how="all")
 
         quotes = get_bulk_quotes(all_syms)
 
-        ytd_hist = get_multi_history(all_syms, period="ytd")
-
         for name, sym in symbols_dict.items():
             try:
-                q = quotes.get(sym, {})
-                price = q.get("price")
+                q      = quotes.get(sym, {})
+                price  = q.get("price")
                 pct_1d = q.get("pct_change")
 
-                if sym in hist.columns:
-                    closes = hist[sym].dropna()
+                if sym in close_df.columns:
+                    closes = close_df[sym].dropna()
                 elif len(all_syms) == 1:
-                    closes = hist.iloc[:, 0].dropna()
+                    closes = close_df.iloc[:, 0].dropna()
                 else:
                     continue
+                if len(closes) < 2:
+                    continue
 
-                pct_5d = (closes.iloc[-1] / closes.iloc[-6] - 1) * 100 if len(closes) >= 6 else None
-                pct_1mo = (closes.iloc[-1] / closes.iloc[0] - 1) * 100 if len(closes) >= 2 else None
+                vols = (vol_df[sym].dropna() if sym in vol_df.columns
+                        else (vol_df.iloc[:, 0].dropna() if len(all_syms) == 1
+                              else pd.Series(dtype=float)))
 
-                pct_ytd = None
-                if ytd_hist is not None:
-                    if sym in ytd_hist.columns:
-                        yc = ytd_hist[sym].dropna()
-                    elif len(all_syms) == 1:
-                        yc = ytd_hist.iloc[:, 0].dropna()
-                    else:
-                        yc = pd.Series()
-                    if len(yc) >= 2:
-                        pct_ytd = (yc.iloc[-1] / yc.iloc[0] - 1) * 100
+                # ── Performance ───────────────────────────────────────────────
+                pct_5d  = (closes.iloc[-1] / closes.iloc[-6] - 1) * 100 if len(closes) >= 6 else None
+                mo_start = closes[closes.index >= closes.index[-1] - pd.Timedelta(days=31)]
+                pct_1mo = (mo_start.iloc[-1] / mo_start.iloc[0] - 1) * 100 if len(mo_start) >= 2 else None
+                ytd_c   = closes[closes.index >= ytd_start]
+                pct_ytd = (ytd_c.iloc[-1] / ytd_c.iloc[0] - 1) * 100 if len(ytd_c) >= 2 else None
+
+                # ── Flow proxy (volume-based estimate) ────────────────────────
+                flow_1d = flow_5d = None
+                if len(vols) >= 21 and len(closes) >= 21:
+                    avg20 = vols.rolling(20).mean()
+                    rets  = closes.pct_change()
+                    fp    = ((vols - avg20) * closes * np.sign(rets)).dropna()
+                    if len(fp) >= 1:
+                        flow_1d = float(fp.iloc[-1])
+                    if len(fp) >= 5:
+                        flow_5d = float(fp.iloc[-5:].sum())
 
                 rows.append({
-                    "Name": name,
-                    "Ticker": sym,
-                    "Price": price,
-                    "1D %": pct_1d,
-                    "5D %": pct_5d,
-                    "1M %": pct_1mo,
-                    "YTD %": pct_ytd,
-                    "Volume": q.get("volume"),
+                    "Name":    name,
+                    "Ticker":  sym,
+                    "Price":   price,
+                    "1D %":    pct_1d,
+                    "Flow 1D": flow_1d,
+                    "5D %":    pct_5d,
+                    "Flow 5D": flow_5d,
+                    "1M %":    pct_1mo,
+                    "YTD %":   pct_ytd,
+                    "Volume":  q.get("volume"),
                 })
             except Exception:
                 continue

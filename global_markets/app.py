@@ -486,7 +486,7 @@ def style_df(df: pd.DataFrame, pct_cols=None, flow_cols=None):
     if pct_cols is None:
         pct_cols = [c for c in ["1D %","5D %","1M %","YTD %"] if c in df.columns]
     if flow_cols is None:
-        flow_cols = [c for c in ["Flow 5D","Flow 1M"] if c in df.columns]
+        flow_cols = [c for c in ["Flow 1D","Flow 5D","Flow 1M"] if c in df.columns]
 
     formatters = {}
     for c in pct_cols:
@@ -700,19 +700,19 @@ with tabs[0]:
         us_etf_map = {v["name"]: k for k, v in ETF_UNIVERSE["US Equity"].items()}
         df_us_etf = get_performance_summary(us_etf_map)
         if not df_us_etf.empty:
-            show_eq = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_us_etf.columns]
+            show_eq = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_us_etf.columns]
             st.dataframe(style_df(df_us_etf[show_eq]), use_container_width=True, hide_index=True)
     with eq_etf_tabs[1]:
         intl_etf_map = {v["name"]: k for k, v in ETF_UNIVERSE["International"].items()}
         df_intl_etf = get_performance_summary(intl_etf_map)
         if not df_intl_etf.empty:
-            show_eq = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_intl_etf.columns]
+            show_eq = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_intl_etf.columns]
             st.dataframe(style_df(df_intl_etf[show_eq]), use_container_width=True, hide_index=True)
     with eq_etf_tabs[2]:
         theme_etf_map = {v["name"]: k for k, v in ETF_UNIVERSE["Thematic"].items()}
         df_theme_etf = get_performance_summary(theme_etf_map)
         if not df_theme_etf.empty:
-            show_eq = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_theme_etf.columns]
+            show_eq = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_theme_etf.columns]
             st.dataframe(style_df(df_theme_etf[show_eq]), use_container_width=True, hide_index=True)
 
     # ── Sector rotation ──────────────────────────────────────────────────────
@@ -960,7 +960,7 @@ with tabs[2]:
         bond_map = {v["name"]: k for k, v in ETF_UNIVERSE["Fixed Income"].items()}
         df_bonds = get_performance_summary(bond_map)
         if not df_bonds.empty:
-            show = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_bonds.columns]
+            show = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_bonds.columns]
             st.dataframe(style_df(df_bonds[show]), use_container_width=True, hide_index=True)
 
     # ── Japan Fixed Income ───────────────────────────────────────────────────
@@ -1021,7 +1021,7 @@ with tabs[2]:
         jp_etf_map = {"iShares Japan Govt Bond ETF (TSE)": "1482.T"}
         df_jp_bonds = get_performance_summary(jp_etf_map)
         if not df_jp_bonds.empty:
-            show_jp = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_jp_bonds.columns]
+            show_jp = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_jp_bonds.columns]
             st.dataframe(style_df(df_jp_bonds[show_jp]), use_container_width=True, hide_index=True)
         st.caption("1482.T trades in JPY on Tokyo Stock Exchange. Price moves inversely to JGB yields.")
 
@@ -1073,7 +1073,7 @@ with tabs[3]:
                 section(f"{cat} — Related ETFs")
                 df_cetf = get_performance_summary(etf_map_c)
                 if not df_cetf.empty:
-                    show_c = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_cetf.columns]
+                    show_c = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_cetf.columns]
                     st.dataframe(style_df(df_cetf[show_c]), use_container_width=True, hide_index=True)
 
     with comm_tabs[-1]:
@@ -1087,7 +1087,7 @@ with tabs[3]:
         all_comm_etfs = {v["name"]: k for k, v in ETF_UNIVERSE["Commodities"].items()}
         df_all_cetf = get_performance_summary(all_comm_etfs)
         if not df_all_cetf.empty:
-            show_ac = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_all_cetf.columns]
+            show_ac = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_all_cetf.columns]
             st.dataframe(style_df(df_all_cetf[show_ac]), use_container_width=True, hide_index=True)
 
 
@@ -1202,13 +1202,13 @@ with tabs[5]:
     with cr_etf_tabs[0]:
         df_btc_etf = get_performance_summary(_btc_etfs)
         if not df_btc_etf.empty:
-            show_e = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_btc_etf.columns]
+            show_e = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_btc_etf.columns]
             st.dataframe(style_df(df_btc_etf[show_e]), use_container_width=True, hide_index=True)
 
     with cr_etf_tabs[1]:
         df_eth_etf = get_performance_summary(_eth_etfs)
         if not df_eth_etf.empty:
-            show_e = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_eth_etf.columns]
+            show_e = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_eth_etf.columns]
             st.dataframe(style_df(df_eth_etf[show_e]), use_container_width=True, hide_index=True)
 
 
