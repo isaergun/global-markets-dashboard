@@ -293,7 +293,13 @@ def fmt_price(v, dec=2):
         return f"${v/1_000_000:.2f}M"
     if abs(v) >= 1_000:
         return f"{v:,.{dec}f}"
-    return f"{v:.{dec}f}"
+    if abs(v) >= 1:
+        return f"{v:.{dec}f}"
+    if abs(v) >= 0.01:
+        return f"{v:.4f}"
+    if abs(v) >= 0.000001:
+        return f"{v:.6f}"
+    return f"{v:.8f}"
 
 def fmt_pct(v):
     if v is None or (isinstance(v, float) and np.isnan(v)):
@@ -488,7 +494,14 @@ def style_df(df: pd.DataFrame, pct_cols=None, flow_cols=None):
     for c in flow_cols:
         formatters[c] = fmt_flow
     if "Price" in df.columns:
-        formatters["Price"] = lambda v: f"{v:,.2f}" if not pd.isna(v) else "—"
+        def _fmt_price_cell(v):
+            if pd.isna(v): return "—"
+            if abs(v) >= 1_000: return f"{v:,.2f}"
+            if abs(v) >= 1:     return f"{v:.2f}"
+            if abs(v) >= 0.01:  return f"{v:.4f}"
+            if abs(v) >= 0.000001: return f"{v:.6f}"
+            return f"{v:.8f}"
+        formatters["Price"] = _fmt_price_cell
     if "Volume" in df.columns:
         formatters["Volume"] = fmt_vol
     if "AUM" in df.columns:
@@ -1141,8 +1154,8 @@ with tabs[5]:
     for i, (name, sym) in enumerate(CRYPTO.items()):
         q = cq2.get(sym)
         with cr_cols[i % 4]:
-            stat_card(name, fmt_price(q["price"],0) if q else "—",
-                      q.get("pct_change") if q else None)
+            price_str = fmt_price(q["price"]) if q else "—"
+            stat_card(name, price_str, q.get("pct_change") if q else None)
 
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
@@ -1166,6 +1179,37 @@ with tabs[5]:
     if not df_cr.empty:
         show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %","Volume"] if c in df_cr.columns]
         st.dataframe(style_df(df_cr[show]), use_container_width=True, hide_index=True)
+
+    # ── Bitcoin & Ethereum Spot ETFs ──────────────────────────────────────────
+    cr_etf_tabs = st.tabs(["₿ Bitcoin ETFs", "Ξ Ethereum ETFs"])
+
+    _btc_etfs = {
+        "iShares Bitcoin Trust (IBIT)":       "IBIT",
+        "Fidelity Wise Origin Bitcoin (FBTC)": "FBTC",
+        "Bitwise Bitcoin ETF (BITB)":          "BITB",
+        "ARK 21Shares Bitcoin (ARKB)":         "ARKB",
+        "Grayscale Bitcoin Trust (GBTC)":      "GBTC",
+        "ProShares Bitcoin Futures (BITO)":    "BITO",
+    }
+    _eth_etfs = {
+        "iShares Ethereum Trust (ETHA)":       "ETHA",
+        "Fidelity Ethereum Fund (FETH)":       "FETH",
+        "Bitwise Ethereum ETF (ETHW)":         "ETHW",
+        "Grayscale Ethereum Trust (ETHE)":     "ETHE",
+        "VanEck Ethereum ETF (ETHV)":          "ETHV",
+    }
+
+    with cr_etf_tabs[0]:
+        df_btc_etf = get_performance_summary(_btc_etfs)
+        if not df_btc_etf.empty:
+            show_e = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_btc_etf.columns]
+            st.dataframe(style_df(df_btc_etf[show_e]), use_container_width=True, hide_index=True)
+
+    with cr_etf_tabs[1]:
+        df_eth_etf = get_performance_summary(_eth_etfs)
+        if not df_eth_etf.empty:
+            show_e = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_eth_etf.columns]
+            st.dataframe(style_df(df_eth_etf[show_e]), use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
