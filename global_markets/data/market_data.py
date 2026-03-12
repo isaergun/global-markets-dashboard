@@ -349,11 +349,10 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
 
     if len(yields) >= 1:
         _fill_curve(yields)
-        # If FRED gave snapshot but no history, build proxy from 1482.T
-        if hist10 is None:
-            hist10 = _etf_yield_proxy(yields.get("10Y", approx_base["10Y"]))
-        src = "FRED (monthly)" if hist10 is None or "Yield" not in getattr(hist10, "name", "") else "FRED + 1482.T proxy"
-        return yields, hist10, src
+        # Always use ETF proxy for history — FRED is monthly with ~2M lag so chart cuts off.
+        # ETF proxy gives daily data through today; FRED used only for current yield values.
+        hist10 = _etf_yield_proxy(yields.get("10Y", approx_base["10Y"]))
+        return yields, hist10, "FRED snapshot / 1482.T trend"
 
     # ── 2. Stooq via pandas_datareader ────────────────────────────────────────
     end_dt   = datetime.now()
