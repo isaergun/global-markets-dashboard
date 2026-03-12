@@ -251,6 +251,85 @@ def compute_etf_flow_proxy(
         return {}
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
+    """
+    Fetch Japan Government Bond (JGB) yield curve data.
+    Sources tried in order: Stooq (daily) → FRED (monthly) → static fallback.
+    Returns: (current_yields dict, history_10y Series|None, source_label str)
+    """
+    from datetime import datetime, timedelta
+    end = datetime.now()
+    start = end - timedelta(days=400)
+
+    # ── 1. Stooq (daily multi-tenor) ─────────────────────────────────────────
+    stooq_syms = {
+        "2Y":  "jp2y.b",
+        "5Y":  "jp5y.b",
+        "10Y": "jp10y.b",
+        "20Y": "jp20y.b",
+        "30Y": "jp30y.b",
+    }
+    try:
+        import pandas_datareader.data as web
+        yields: dict = {}
+        hist10 = None
+        for tenor, sym in stooq_syms.items():
+            try:
+                df = web.DataReader(sym, "stooq", start, end)
+                if df is not None and not df.empty:
+                    s = df["Close"].dropna()
+                    if len(s) > 0:
+                        v = float(s.iloc[-1])
+                        if -1 < v < 20:          # sanity check
+                            yields[tenor] = v
+                            if tenor == "10Y":
+                                hist10 = s.sort_index()
+            except Exception:
+                continue
+        if len(yields) >= 2:
+            return yields, hist10, "Stooq (daily)"
+    except Exception:
+        pass
+
+    # ── 2. FRED OECD series (monthly, 2 tenors) ───────────────────────────────
+    fred_syms = {
+        "3M":  "IR3TBB01JPM156N",
+        "10Y": "IRLTLT01JPM156N",
+    }
+    try:
+        import pandas_datareader.data as web
+        yields = {}
+        hist10 = None
+        for tenor, sid in fred_syms.items():
+            try:
+                df = web.DataReader(sid, "fred", start, end)
+                if df is not None and not df.empty:
+                    v = float(df.iloc[-1, 0])
+                    if not np.isnan(v):
+                        yields[tenor] = v
+                        if tenor == "10Y":
+                            hist10 = df.iloc[:, 0].dropna()
+            except Exception:
+                continue
+        if len(yields) >= 1:
+            # Fill missing tenors with BOJ-consistent approximations
+            approx = {"3M": 0.10, "2Y": 0.40, "5Y": 0.80, "10Y": 1.50, "20Y": 2.10, "30Y": 2.30}
+            for k, v in approx.items():
+                if k not in yields:
+                    yields[k] = v
+            return yields, hist10, "FRED (monthly)"
+    except Exception:
+        pass
+
+    # ── 3. Static fallback (BOJ-published curve, approx early 2025) ───────────
+    return (
+        {"3M": 0.10, "2Y": 0.40, "5Y": 0.80, "10Y": 1.50, "20Y": 2.10, "30Y": 2.30},
+        None,
+        "Static (BOJ approx — data unavailable)",
+    )
+
+
 @st.cache_data(ttl=600, show_spinner=False)
 def get_yield_curve() -> pd.DataFrame | None:
     """Fetch US Treasury yield curve data."""

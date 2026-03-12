@@ -28,7 +28,7 @@ from config import (
 from data.market_data import (
     get_quote, get_bulk_quotes, get_history, get_multi_history,
     get_etf_info, compute_etf_flow_proxy, get_yield_curve,
-    get_performance_summary,
+    get_japan_yield_curve, get_performance_summary,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -952,58 +952,115 @@ with tabs[2]:
 
     # ── Japan Fixed Income ───────────────────────────────────────────────────
     with fi_tabs[1]:
-        section("Bank of Japan — Key Rates")
-        boj_c1, boj_c2, boj_c3 = st.columns(3)
-        # BOJ Policy Rate (short-term) — updated manually; BOJ data not on Yahoo Finance
-        with boj_c1: stat_card("BOJ Policy Rate", "0.50%")
-        with boj_c2: stat_card("10Y JGB Target", "~1.50% (flexible)")
-        with boj_c3: stat_card("Data Source", "BOJ (static)")
+        jp_yields, jp_hist10, jp_source = get_japan_yield_curve()
+        us_tnx_q = get_quote("^TNX")
+
+        jp_10y = jp_yields.get("10Y")
+        jp_2y  = jp_yields.get("2Y") or jp_yields.get("3M")
+        us_10y = us_tnx_q["price"] if us_tnx_q else None
+        spread = (us_10y - jp_10y) if (us_10y and jp_10y) else None
+        slope  = (jp_10y - jp_2y)  if (jp_10y and jp_2y)  else None
+
+        section("Japan Government Bond — Key Rates")
+        kc1, kc2, kc3, kc4 = st.columns(4)
+        with kc1: stat_card("BOJ Policy Rate", "0.50%")
+        with kc2: stat_card("JGB 10Y", f"{jp_10y:.3f}%" if jp_10y else "—")
+        with kc3: stat_card("US–JP 10Y Spread", f"{spread:.2f}%" if spread else "—")
+        with kc4: stat_card("2Y/10Y Slope", f"{slope:.2f}%" if slope else "—")
+
         st.markdown(
-            "<p style='font-size:10px;color:#9ca3af;margin:4px 0 16px'>"
-            "⚠ Live JGB yield data is not available via Yahoo Finance. "
-            "The chart below shows the iShares Japan Government Bond ETF (1482.T, TSE) "
-            "as a price proxy — bond prices move inversely to yields."
-            "</p>", unsafe_allow_html=True,
+            f"<p style='font-size:10px;color:#9ca3af;margin:2px 0 16px'>"
+            f"Source: {jp_source}. BOJ ended negative rates Mar 2024; raised policy rate to 0.50% Jan 2025 (YCC abolished Jul 2024)."
+            f"</p>", unsafe_allow_html=True,
         )
 
-        section("iShares Japan Govt Bond ETF (1482.T) — Price History")
-        jgb_q  = get_quote("1482.T")
-        jgb_h  = get_history("1482.T", "3mo")
+        # ── Yield curve chart ────────────────────────────────────────────────
+        section("JGB Yield Curve")
+        tenor_order = ["3M", "2Y", "5Y", "10Y", "20Y", "30Y"]
+        x_labels = [t for t in tenor_order if t in jp_yields]
+        y_vals   = [jp_yields[t] for t in x_labels]
 
-        col_jq, col_jc = st.columns([1, 3])
-        with col_jq:
+        col_jyc, col_jyd = st.columns([3, 2])
+        with col_jyc:
+            if x_labels:
+                fig_jyc = go.Figure()
+                fig_jyc.add_trace(go.Scatter(
+                    x=x_labels, y=y_vals,
+                    mode="lines+markers",
+                    line=dict(color="#e11d48", width=2.5),
+                    marker=dict(size=9, color="#e11d48",
+                                line=dict(color="#f4f5f7", width=2)),
+                    fill="tozeroy", fillcolor="rgba(225,29,72,0.07)",
+                    hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
+                ))
+                layout_jyc = base_layout(280)
+                layout_jyc["yaxis"]["ticksuffix"] = "%"
+                layout_jyc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
+                fig_jyc.update_layout(**layout_jyc)
+                st.plotly_chart(fig_jyc, use_container_width=True)
+        with col_jyd:
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            if jgb_q:
-                stat_card("1482.T Price (JPY)", f"¥{jgb_q['price']:,.0f}", jgb_q.get("pct_change"))
-                stat_card("1D Change", fmt_pct(jgb_q.get("pct_change")))
-                stat_card("Prev Close", f"¥{jgb_q.get('prev_close',0):,.0f}")
-            else:
-                stat_card("1482.T", "—")
-        with col_jq:
-            st.markdown(
-                "<p style='font-size:10px;color:#9ca3af;margin-top:12px'>"
-                "Price ↑ = yields ↓ (dovish)<br>Price ↓ = yields ↑ (hawkish)"
-                "</p>", unsafe_allow_html=True,
-            )
-        with col_jc:
-            jgb_color = "#16a34a" if (jgb_q or {}).get("pct_change", 0) >= 0 else "#dc2626"
-            fig_jgb = line_chart(jgb_h, title="1482.T — Japan Govt Bond ETF (JPY)", color=jgb_color, height=260)
-            if fig_jgb: st.plotly_chart(fig_jgb, use_container_width=True)
+            for tenor in x_labels:
+                stat_card(f"JGB {tenor}", f"{jp_yields[tenor]:.3f}%")
 
-        section("Japanese Yen (USD/JPY) — 3 Month")
-        usdjpy_h = get_history("USDJPY=X", "3mo")
-        usdjpy_q = get_quote("USDJPY=X")
-        col_fy1, col_fy2 = st.columns([1, 3])
-        with col_fy1:
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            if usdjpy_q:
-                stat_card("USD/JPY", fmt_price(usdjpy_q["price"], 2), usdjpy_q.get("pct_change"))
-            else:
-                stat_card("USD/JPY", "—")
-        with col_fy2:
-            fy_color = "#dc2626" if (usdjpy_q or {}).get("pct_change", 0) >= 0 else "#16a34a"
-            fig_fy = line_chart(usdjpy_h, title="USD/JPY (rising = JPY weakening)", color=fy_color, height=260)
-            if fig_fy: st.plotly_chart(fig_fy, use_container_width=True)
+        # ── 10Y JGB historical chart ──────────────────────────────────────────
+        section("JGB 10Y Yield — Historical")
+        if jp_hist10 is not None and not jp_hist10.empty:
+            jh_df = jp_hist10.reset_index()
+            jh_df.columns = ["Date", "Yield"]
+            fig_j10 = go.Figure(go.Scatter(
+                x=jh_df["Date"], y=jh_df["Yield"],
+                mode="lines", line=dict(color="#e11d48", width=2),
+                fill="tozeroy", fillcolor="rgba(225,29,72,0.06)",
+                hovertemplate="%{x|%b %d, %Y}: %{y:.3f}%<extra></extra>",
+            ))
+            ly10 = base_layout(240)
+            ly10["yaxis"]["ticksuffix"] = "%"
+            fig_j10.update_layout(**ly10)
+            st.plotly_chart(fig_j10, use_container_width=True)
+        else:
+            st.info("Historical JGB yield series unavailable. Yield curve snapshot shown above.")
+
+        # ── US vs Japan 10Y comparison ────────────────────────────────────────
+        section("US vs Japan — 10Y Yield Comparison (3 Month)")
+        us_hist = get_history("^TNX", "3mo")
+        if us_hist is not None and jp_hist10 is not None:
+            us_ser = us_hist["Close"].dropna()
+            jp_ser = jp_hist10.dropna()
+            combined = pd.DataFrame({"US 10Y": us_ser, "JP 10Y": jp_ser}).dropna(how="all")
+            if not combined.empty:
+                fig_cmp = go.Figure()
+                fig_cmp.add_trace(go.Scatter(
+                    x=combined.index, y=combined["US 10Y"],
+                    name="US 10Y", mode="lines",
+                    line=dict(color=PALETTE[0], width=2),
+                    hovertemplate="US 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
+                ))
+                if "JP 10Y" in combined.columns:
+                    fig_cmp.add_trace(go.Scatter(
+                        x=combined.index, y=combined["JP 10Y"],
+                        name="JP 10Y", mode="lines",
+                        line=dict(color="#e11d48", width=2),
+                        hovertemplate="JP 10Y %{x|%b %d}: %{y:.3f}%<extra></extra>",
+                    ))
+                ly_cmp = base_layout(260)
+                ly_cmp["yaxis"]["ticksuffix"] = "%"
+                ly_cmp["showlegend"] = True
+                ly_cmp["legend"] = dict(orientation="h", x=0, y=1.12, font=dict(size=11))
+                fig_cmp.update_layout(**ly_cmp)
+                st.plotly_chart(fig_cmp, use_container_width=True)
+        elif us_hist is not None:
+            fig_us_only = line_chart(us_hist, title="US 10Y Yield (%)", color=PALETTE[0], height=240, yformat="%")
+            if fig_us_only: st.plotly_chart(fig_us_only, use_container_width=True)
+
+        # ── Japan bond ETF performance ────────────────────────────────────────
+        section("Japan Bond ETF Performance")
+        jp_etf_map = {"iShares Japan Govt Bond ETF (TSE)": "1482.T"}
+        df_jp_bonds = get_performance_summary(jp_etf_map)
+        if not df_jp_bonds.empty:
+            show_jp = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %"] if c in df_jp_bonds.columns]
+            st.dataframe(style_df(df_jp_bonds[show_jp]), use_container_width=True, hide_index=True)
+        st.caption("1482.T trades in JPY on Tokyo Stock Exchange. Price moves inversely to JGB yields.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

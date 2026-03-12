@@ -9,3 +9,4 @@ websocket-client>=1.7.0
 web3>=6.15.0
 yfinance>=0.2.38
 plotly>=5.20.0
+pandas-datareader>=0.10.0
