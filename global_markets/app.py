@@ -28,7 +28,7 @@ from config import (
 )
 from data.market_data import (
     get_quote, get_bulk_quotes, get_history, get_multi_history,
-    compute_etf_flow_proxy, get_yield_curve,
+    compute_etf_flow_proxy, get_yield_curve, get_us_yield_history,
     get_japan_yield_curve, get_performance_summary,
 )
 
@@ -1137,6 +1137,47 @@ with tabs[2]:
             layout_sp["yaxis"]["ticksuffix"] = "%"
             fig_sp.update_layout(**layout_sp)
             st.plotly_chart(fig_sp, use_container_width=True)
+
+        section("2Y / 10Y Yields & Spread (Inversion Watch)")
+        h2y  = get_us_yield_history("2Y",  lookback_days=365)
+        h10y = get_us_yield_history("10Y", lookback_days=365)
+        if h2y is not None and h10y is not None:
+            combined = pd.DataFrame({"2Y": h2y, "10Y": h10y}).dropna()
+            combined["Spread"] = combined["10Y"] - combined["2Y"]
+            fig_sp2 = make_subplots(
+                rows=3, cols=1, shared_xaxes=True,
+                subplot_titles=["2Y Treasury Yield", "10Y Treasury Yield", "10Y – 2Y Spread"],
+                vertical_spacing=0.07, row_heights=[0.33, 0.33, 0.34],
+            )
+            fig_sp2.add_trace(go.Scatter(
+                x=combined.index, y=combined["2Y"], mode="lines",
+                line=dict(color=PALETTE[1], width=2),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.3f}%<extra>2Y</extra>",
+            ), row=1, col=1)
+            fig_sp2.add_trace(go.Scatter(
+                x=combined.index, y=combined["10Y"], mode="lines",
+                line=dict(color=PALETTE[0], width=2),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.3f}%<extra>10Y</extra>",
+            ), row=2, col=1)
+            sp_colors = ["#16a34a" if v >= 0 else "#dc2626" for v in combined["Spread"]]
+            fig_sp2.add_trace(go.Bar(
+                x=combined.index, y=combined["Spread"],
+                marker=dict(color=sp_colors, opacity=0.8, line=dict(width=0)),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.3f}%<extra>10Y–2Y</extra>",
+            ), row=3, col=1)
+            fig_sp2.add_hline(y=0, line_dash="dot", line_color="#2d3142", opacity=0.8, row=3, col=1)
+            for r in [1, 2, 3]:
+                fig_sp2.update_xaxes(showgrid=False, color=TICK_COLOR, zeroline=False,
+                                     tickfont=dict(size=9, color=TICK_COLOR), row=r, col=1)
+                fig_sp2.update_yaxes(showgrid=True, gridcolor=GRID_COLOR, color=TICK_COLOR,
+                                     tickfont=dict(size=9), zeroline=False,
+                                     ticksuffix="%", row=r, col=1)
+            fig_sp2.update_layout(
+                height=520, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                margin=dict(l=4, r=4, t=30, b=4), showlegend=False,
+                hovermode="x unified", font=dict(color=TICK_COLOR, size=10),
+            )
+            st.plotly_chart(fig_sp2, use_container_width=True)
 
         section("Bond ETF Performance")
         bond_map = {v["name"]: k for k, v in ETF_UNIVERSE["Fixed Income"].items()}
