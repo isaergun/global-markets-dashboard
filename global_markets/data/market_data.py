@@ -418,20 +418,17 @@ def get_us_yield_history(tenor: str, lookback_days: int = 365) -> "pd.Series | N
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def get_japan_yield_history(tenor: str, lookback_days: int = 365) -> "pd.Series | None":
-    """Fetch Japan Government Bond yield history from Stooq via pandas_datareader."""
-    _STOOQ = {"2Y": "jp2y.b", "5Y": "jp5y.b", "10Y": "jp10y.b", "20Y": "jp20y.b", "30Y": "jp30y.b"}
-    sym = _STOOQ.get(tenor)
-    if not sym:
-        return None
+def get_fred_series(series_id: str, lookback_days: int = 365) -> "pd.Series | None":
+    """Fetch any FRED series by ID as a pandas Series (no API key required)."""
     try:
-        import pandas_datareader.data as web
-        end_dt   = datetime.now()
-        start_dt = end_dt - timedelta(days=lookback_days)
-        df = web.DataReader(sym, "stooq", start_dt, end_dt)
-        if df.empty:
-            return None
-        return df["Close"].dropna().sort_index()
+        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+        df = pd.read_csv(url, na_values=".")
+        df.columns = ["Date", "Value"]
+        df["Date"]  = pd.to_datetime(df["Date"])
+        df["Value"] = pd.to_numeric(df["Value"], errors="coerce")
+        df = df.dropna(subset=["Value"]).set_index("Date").sort_index()
+        cutoff = pd.Timestamp.now() - pd.Timedelta(days=lookback_days)
+        return df["Value"][df.index >= cutoff]
     except Exception:
         return None
 
