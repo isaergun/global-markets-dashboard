@@ -1171,27 +1171,7 @@ with tabs[2]:
 
     # ── Japan Fixed Income ───────────────────────────────────────────────────
     with fi_tabs[1]:
-        jp_yields, _jp_hist, jp_source = get_japan_yield_curve()
-        us_tnx_q = get_quote("^TNX")
-
-        jp_10y = jp_yields.get("10Y")
-        jp_2y  = jp_yields.get("2Y") or jp_yields.get("3M")
-        us_10y = us_tnx_q["price"] if us_tnx_q else None
-        spread = (us_10y - jp_10y) if (us_10y and jp_10y) else None
-        slope  = (jp_10y - jp_2y)  if (jp_10y and jp_2y)  else None
-
-        section("Japan Government Bond — Key Rates")
-        kc1, kc2, kc3, kc4 = st.columns(4)
-        with kc1: stat_card("BOJ Policy Rate", "0.50%")
-        with kc2: stat_card("JGB 10Y", f"{jp_10y:.3f}%" if jp_10y else "—")
-        with kc3: stat_card("US–JP 10Y Spread", f"{spread:.2f}%" if spread else "—")
-        with kc4: stat_card("2Y/10Y Slope", f"{slope:.2f}%" if slope else "—")
-
-        st.markdown(
-            f"<p style='font-size:10px;color:#9ca3af;margin:2px 0 16px'>"
-            f"Source: {jp_source}. BOJ ended negative rates Mar 2024; raised policy rate to 0.50% Jan 2025 (YCC abolished Jul 2024)."
-            f"</p>", unsafe_allow_html=True,
-        )
+        jp_yields, _jp_hist, _jp_source = get_japan_yield_curve()
 
         # ── Yield curve chart ────────────────────────────────────────────────
         section("JGB Yield Curve")
