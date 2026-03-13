@@ -361,26 +361,35 @@ def get_japan_yield_curve() -> tuple[dict, "pd.Series | None", str]:
 
 @st.cache_data(ttl=600, show_spinner=False)
 def get_yield_curve() -> pd.DataFrame | None:
-    """Fetch US Treasury yield curve data."""
-    symbols = {
-        "1M": "^IRX",
-        "5Y": "^FVX",
-        "10Y": "^TNX",
-        "30Y": "^TYX",
-    }
+    """Fetch US Treasury yield curve data (2Y, 5Y, 10Y, 30Y)."""
+    yf_symbols = {"5Y": "^FVX", "10Y": "^TNX", "30Y": "^TYX"}
+    maturities  = {"2Y": 2, "5Y": 5, "10Y": 10, "30Y": 30}
     data = {}
-    for label, sym in symbols.items():
+
+    for label, sym in yf_symbols.items():
         q = get_quote(sym)
         if q and q["price"]:
             data[label] = q["price"]
 
+    # 2Y from FRED (no yfinance ticker available)
+    try:
+        url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS2"
+        df2 = pd.read_csv(url, na_values=".")
+        df2.columns = ["Date", "Value"]
+        df2["Value"] = pd.to_numeric(df2["Value"], errors="coerce")
+        df2 = df2.dropna(subset=["Value"])
+        if not df2.empty:
+            data["2Y"] = float(df2["Value"].iloc[-1])
+    except Exception:
+        pass
+
     if not data:
         return None
 
-    maturities = {"1M": 1/12, "5Y": 5, "10Y": 10, "30Y": 30}
     rows = []
-    for label, yld in data.items():
-        rows.append({"maturity": label, "years": maturities[label], "yield": yld})
+    for label in ["2Y", "5Y", "10Y", "30Y"]:
+        if label in data:
+            rows.append({"maturity": label, "years": maturities[label], "yield": data[label]})
     return pd.DataFrame(rows)
 
 

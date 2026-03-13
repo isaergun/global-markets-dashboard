@@ -1094,31 +1094,30 @@ with tabs[2]:
         yc_data = get_yield_curve()
         yld_q   = get_bulk_quotes(list(YIELD_SYMBOLS.values()))
 
-        col_yc, col_yd = st.columns([3, 2])
-        with col_yc:
-            if yc_data is not None:
-                fig_yc = go.Figure()
-                fig_yc.add_trace(go.Scatter(
-                    x=yc_data["maturity"], y=yc_data["yield"],
-                    mode="lines+markers",
-                    line=dict(color=PALETTE[0], width=2.5),
-                    marker=dict(size=9, color=PALETTE[0],
-                                line=dict(color="#f4f5f7", width=2)),
-                    fill="tozeroy", fillcolor="rgba(74,144,226,0.07)",
-                    hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
-                ))
-                layout_yc = base_layout(280)
-                layout_yc["yaxis"]["ticksuffix"] = "%"
-                layout_yc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
-                fig_yc.update_layout(**layout_yc)
-                st.plotly_chart(fig_yc, use_container_width=True)
+        if yc_data is not None:
+            fig_yc = go.Figure()
+            fig_yc.add_trace(go.Scatter(
+                x=yc_data["maturity"], y=yc_data["yield"],
+                mode="lines+markers",
+                line=dict(color=PALETTE[0], width=2.5),
+                marker=dict(size=9, color=PALETTE[0],
+                            line=dict(color="#f4f5f7", width=2)),
+                fill="tozeroy", fillcolor="rgba(74,144,226,0.07)",
+                hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
+            ))
+            layout_yc = base_layout(280)
+            layout_yc["yaxis"]["ticksuffix"] = "%"
+            layout_yc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
+            fig_yc.update_layout(**layout_yc)
+            st.plotly_chart(fig_yc, use_container_width=True)
 
-        with col_yd:
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            for label, sym in YIELD_SYMBOLS.items():
-                q = yld_q.get(sym)
-                stat_card(label, f"{q['price']:.3f}%" if q else "—",
-                          q.get("pct_change") if q else None)
+        yc2y = float(yc_data[yc_data["maturity"] == "2Y"]["yield"].iloc[0]) if yc_data is not None and "2Y" in yc_data["maturity"].values else None
+        kc1, kc2, kc3, kc4 = st.columns(4)
+        with kc1: stat_card("US 2Y", f"{yc2y:.3f}%" if yc2y else "—")
+        for (label, sym), col in zip(YIELD_SYMBOLS.items(), [kc2, kc3, kc4]):
+            q = yld_q.get(sym)
+            with col: stat_card(label, f"{q['price']:.3f}%" if q else "—",
+                                q.get("pct_change") if q else None)
 
         section("2Y / 10Y Yields & Spread (Inversion Watch)")
         h2y  = get_us_yield_history("2Y",  lookback_days=365)

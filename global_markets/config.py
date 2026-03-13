@@ -34,7 +34,6 @@ YIELDS = {
 
 # Real yield symbols available in yfinance
 YIELD_SYMBOLS = {
-    "US 1M": "^IRX",
     "US 5Y": "^FVX",
     "US 10Y": "^TNX",
     "US 30Y": "^TYX",
