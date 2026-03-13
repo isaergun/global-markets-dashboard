@@ -313,7 +313,7 @@ button[role="tab"][aria-selected="true"] {
 # Yahoo Finance → TradingView symbol mapping
 _TV_SYM = {
     # Indices
-    "^GSPC": "SP:SPX",      "^DJI": "DJ:DJI",       "^NDX": "NASDAQ:NDX",
+    "^GSPC": "CAPITALCOM:US500",      "^DJI": "DJ:DJI",       "^NDX": "NASDAQ:NDX",
     "^IXIC": "NASDAQ:IXIC", "^RUT": "TVC:RUT",       "^VIX": "TVC:VIX",
     "^FTSE": "TVC:UKX",     "^GDAXI": "XETR:DAX",    "^FCHI": "EURONEXT:PX1",
     "^STOXX50E": "TVC:SX5E","^N225": "TVC:NI225",    "^HSI": "TVC:HSI",
@@ -824,7 +824,8 @@ with tabs[0]:
             q = idx_q.get(sym)
             if q and q.get("pct_change") is not None:
                 heat_rows.append({"Region": region, "Index": name,
-                                   "chg": q["pct_change"], "price": q["price"]})
+                                   "chg": round(float(q["pct_change"]), 2),
+                                   "price": q["price"]})
 
     if heat_rows:
         df_h = pd.DataFrame(heat_rows)
