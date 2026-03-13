@@ -2027,10 +2027,10 @@ with tabs[8]:
         idx_hist   = signals["composite"].dropna().index
 
         fig_prob = go.Figure()
-        prob_colors = {
-            "Risk-On":  REGIME_COLORS["Risk-On"],
-            "Neutral":  REGIME_COLORS["Neutral"],
-            "Risk-Off": REGIME_COLORS["Risk-Off"],
+        prob_colors_rgba = {
+            "Risk-On":  "rgba(22,163,74,0.6)",
+            "Neutral":  "rgba(245,158,11,0.6)",
+            "Risk-Off": "rgba(220,38,38,0.6)",
         }
         for ci in range(gmm_hist.n_components):
             lbl = lmap_hist[ci]
@@ -2038,7 +2038,7 @@ with tabs[8]:
                 x=idx_hist, y=probs_hist[:, ci],
                 mode="lines", name=lbl, stackgroup="one",
                 line=dict(width=0),
-                fillcolor=prob_colors[lbl] + "99",
+                fillcolor=prob_colors_rgba[lbl],
                 hovertemplate=f"{lbl}<br>%{{x|%Y-%m-%d}}<br>%{{y:.0%}}<extra></extra>",
             ))
         fig_prob.update_layout(
