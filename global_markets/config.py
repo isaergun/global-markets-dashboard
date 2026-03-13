@@ -14,22 +14,15 @@ INDICES = {
         "DAX": "^GDAXI",
         "CAC 40": "^FCHI",
         "Euro Stoxx 50": "^STOXX50E",
-        "IBEX 35": "^IBEX",
         "MIB": "FTSEMIB.MI",
     },
     "Asia": {
         "Nikkei 225": "^N225",
         "Hang Seng": "^HSI",
         "Shanghai": "000001.SS",
-        "Sensex": "^BSESN",
-        "ASX 200": "^AXJO",
-        "KOSPI": "^KS11",
-        "TAIEX": "^TWII",
     },
-    "Emerging": {
-        "Bovespa": "^BVSP",
-        "Nifty 50": "^NSEI",
-        "Mexbol": "^MXX",
+    "Turkey": {
+        "BIST 100": "XU100.IS",
     },
 }
 
