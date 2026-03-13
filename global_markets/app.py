@@ -1191,7 +1191,7 @@ with tabs[2]:
 
         # ── Yield curve chart ────────────────────────────────────────────────
         section("JGB Yield Curve")
-        tenor_order = ["3M", "2Y", "5Y", "10Y", "20Y", "30Y"]
+        tenor_order = ["2Y", "5Y", "10Y", "20Y", "30Y"]
         x_labels = [t for t in tenor_order if t in jp_yields]
         y_vals   = [jp_yields[t] for t in x_labels]
 
