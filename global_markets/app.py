@@ -28,7 +28,7 @@ from config import (
 )
 from data.market_data import (
     get_quote, get_bulk_quotes, get_history, get_multi_history,
-    compute_etf_flow_proxy, get_yield_curve, get_us_yield_history,
+    compute_etf_flow_proxy, get_yield_curve, get_us_yield_history, get_fred_series,
     get_japan_yield_curve, get_performance_summary,
 )
 
@@ -354,6 +354,13 @@ _TV_SYM = {
     "SPY": "AMEX:SPY",   "QQQ": "NASDAQ:QQQ",  "IWM": "AMEX:IWM",
     "GLD": "AMEX:GLD",   "SLV": "AMEX:SLV",    "USO": "AMEX:USO",
     "IBIT": "NASDAQ:IBIT","FBTC": "NASDAQ:FBTC","ETHA": "NASDAQ:ETHA",
+    # BDCs
+    "ARCC": "NASDAQ:ARCC", "OBDC": "NYSE:OBDC",  "BXSL": "NYSE:BXSL",
+    "FSK":  "NYSE:FSK",    "MAIN": "NYSE:MAIN",   "HTGC": "NASDAQ:HTGC",
+    "GBDC": "NASDAQ:GBDC",
+    # Senior Loans & CLOs
+    "BKLN": "NYSE:BKLN", "SRLN": "NYSE:SRLN",
+    "JAAA": "NYSE:JAAA", "CLOI": "NYSE:CLOI",
 }
 
 def tv_chart(yf_symbol: str, height: int = 380, interval: str = "D",
@@ -798,6 +805,7 @@ tabs = st.tabs([
     "💱  Currencies",
     "₿   Crypto",
     "🧠  Sentiment",
+    "💰  Private Credit",
 ])
 
 
@@ -1541,6 +1549,168 @@ with tabs[6]:
         layout_cmp["yaxis"]["ticksuffix"] = ""
         fig_cmp.update_layout(**layout_cmp)
         st.plotly_chart(fig_cmp, use_container_width=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 8 — PRIVATE CREDIT
+# ══════════════════════════════════════════════════════════════════════════════
+_BDC_UNIVERSE = {
+    "Ares Capital":               "ARCC",
+    "Blue Owl Capital":           "OBDC",
+    "Blackstone Secured Lending": "BXSL",
+    "FS KKR Capital":             "FSK",
+    "Main Street Capital":        "MAIN",
+    "Hercules Capital":           "HTGC",
+    "Golub Capital BDC":          "GBDC",
+}
+_LOAN_CLO_UNIVERSE = {
+    "Invesco Senior Loan ETF":     "BKLN",
+    "SPDR Blackstone Senior Loan": "SRLN",
+    "Janus Henderson AAA CLO":     "JAAA",
+    "VanEck CLO ETF":              "CLOI",
+}
+
+with tabs[7]:
+    pc_tabs = st.tabs(["📊 BDCs", "📉 Credit Spreads", "🏦 Senior Loans & CLOs", "📋 All"])
+
+    # ── BDCs ─────────────────────────────────────────────────────────────────
+    with pc_tabs[0]:
+        section("Business Development Companies")
+        bdc_q = get_bulk_quotes(list(_BDC_UNIVERSE.values()))
+        bdc_cols = st.columns(4)
+        for i, (name, sym) in enumerate(_BDC_UNIVERSE.items()):
+            q = bdc_q.get(sym)
+            with bdc_cols[i % 4]:
+                stat_card(name, fmt_price(q["price"]) if q else "—",
+                          q.get("pct_change") if q else None)
+
+        _sk_bdc = "pc_bdc_chart"
+        if _sk_bdc not in st.session_state:
+            st.session_state[_sk_bdc] = list(_BDC_UNIVERSE.values())[0]
+
+        _bdc_dd_col, _ = st.columns([1, 3])
+        with _bdc_dd_col:
+            _bdc_names = list(_BDC_UNIVERSE.keys())
+            _bdc_sel   = next((n for n, s in _BDC_UNIVERSE.items()
+                               if s == st.session_state[_sk_bdc]), _bdc_names[0])
+            _bdc_pick  = st.selectbox("BDC", _bdc_names, index=_bdc_names.index(_bdc_sel),
+                                      key="bdc_dd", label_visibility="collapsed")
+            if _BDC_UNIVERSE[_bdc_pick] != st.session_state[_sk_bdc]:
+                st.session_state[_sk_bdc] = _BDC_UNIVERSE[_bdc_pick]
+                st.rerun()
+
+        tv_chart(st.session_state[_sk_bdc], height=400)
+
+        section("BDC Performance")
+        df_bdc = get_performance_summary(_BDC_UNIVERSE)
+        if not df_bdc.empty:
+            show_bdc = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
+                        if c in df_bdc.columns]
+            st.dataframe(style_df(df_bdc[show_bdc]), use_container_width=True, hide_index=True)
+
+    # ── Credit Spreads ────────────────────────────────────────────────────────
+    with pc_tabs[1]:
+        section("Credit Spreads & Reference Rates")
+
+        _cs_fred = {"HY OAS": "BAMLH0A0HYM2", "BBB OAS": "BAMLC0A4CBBB", "SOFR": "SOFR"}
+        sp_cols = st.columns(3)
+        for col, (label, sid) in zip(sp_cols, _cs_fred.items()):
+            _s = get_fred_series(sid, lookback_days=5)
+            val = float(_s.iloc[-1]) if _s is not None and len(_s) >= 1 else None
+            chg = float((_s.iloc[-1] - _s.iloc[-2]) / _s.iloc[-2] * 100) \
+                  if _s is not None and len(_s) >= 2 else None
+            with col:
+                stat_card(label, f"{val:.2f}%" if val is not None else "—", chg)
+
+        hy_h   = get_fred_series("BAMLH0A0HYM2", lookback_days=365)
+        bbb_h  = get_fred_series("BAMLC0A4CBBB", lookback_days=365)
+        sofr_h = get_fred_series("SOFR",          lookback_days=365)
+
+        if hy_h is not None and bbb_h is not None:
+            fig_cr = make_subplots(
+                rows=3, cols=1, shared_xaxes=True,
+                subplot_titles=["HY OAS Spread (%)", "BBB OAS Spread (%)", "SOFR (%)"],
+                vertical_spacing=0.07, row_heights=[0.34, 0.33, 0.33],
+            )
+            fig_cr.add_trace(go.Scatter(
+                x=hy_h.index, y=hy_h, mode="lines",
+                line=dict(color="#dc2626", width=2),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.2f}%<extra>HY OAS</extra>",
+            ), row=1, col=1)
+            fig_cr.add_trace(go.Scatter(
+                x=bbb_h.index, y=bbb_h, mode="lines",
+                line=dict(color="#f59e0b", width=2),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.2f}%<extra>BBB OAS</extra>",
+            ), row=2, col=1)
+            if sofr_h is not None:
+                fig_cr.add_trace(go.Scatter(
+                    x=sofr_h.index, y=sofr_h, mode="lines",
+                    line=dict(color=PALETTE[0], width=2),
+                    hovertemplate="%{x|%Y-%m-%d}: %{y:.2f}%<extra>SOFR</extra>",
+                ), row=3, col=1)
+            for r in [1, 2, 3]:
+                fig_cr.update_xaxes(showgrid=False, color=TICK_COLOR, zeroline=False,
+                                    tickfont=dict(size=9, color=TICK_COLOR), row=r, col=1)
+                fig_cr.update_yaxes(showgrid=True, gridcolor=GRID_COLOR, color=TICK_COLOR,
+                                    tickfont=dict(size=9), zeroline=False,
+                                    ticksuffix="%", row=r, col=1)
+            fig_cr.update_layout(
+                height=520, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                margin=dict(l=4, r=4, t=30, b=4), showlegend=False,
+                hovermode="x unified", font=dict(color=TICK_COLOR, size=10),
+            )
+            st.plotly_chart(fig_cr, use_container_width=True)
+
+    # ── Senior Loans & CLOs ───────────────────────────────────────────────────
+    with pc_tabs[2]:
+        section("Senior Loans & CLOs")
+        loan_q = get_bulk_quotes(list(_LOAN_CLO_UNIVERSE.values()))
+        loan_cols = st.columns(len(_LOAN_CLO_UNIVERSE))
+        for i, (name, sym) in enumerate(_LOAN_CLO_UNIVERSE.items()):
+            q = loan_q.get(sym)
+            with loan_cols[i]:
+                stat_card(name, fmt_price(q["price"]) if q else "—",
+                          q.get("pct_change") if q else None)
+
+        _sk_loan = "pc_loan_chart"
+        if _sk_loan not in st.session_state:
+            st.session_state[_sk_loan] = list(_LOAN_CLO_UNIVERSE.values())[0]
+
+        _loan_dd_col, _ = st.columns([1, 3])
+        with _loan_dd_col:
+            _loan_names = list(_LOAN_CLO_UNIVERSE.keys())
+            _loan_sel   = next((n for n, s in _LOAN_CLO_UNIVERSE.items()
+                                if s == st.session_state[_sk_loan]), _loan_names[0])
+            _loan_pick  = st.selectbox("ETF", _loan_names, index=_loan_names.index(_loan_sel),
+                                       key="loan_dd", label_visibility="collapsed")
+            if _LOAN_CLO_UNIVERSE[_loan_pick] != st.session_state[_sk_loan]:
+                st.session_state[_sk_loan] = _LOAN_CLO_UNIVERSE[_loan_pick]
+                st.rerun()
+
+        tv_chart(st.session_state[_sk_loan], height=400)
+
+        section("Senior Loan & CLO ETF Performance")
+        df_loan = get_performance_summary(_LOAN_CLO_UNIVERSE)
+        if not df_loan.empty:
+            show_loan = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
+                         if c in df_loan.columns]
+            st.dataframe(style_df(df_loan[show_loan]), use_container_width=True, hide_index=True)
+
+    # ── All ───────────────────────────────────────────────────────────────────
+    with pc_tabs[3]:
+        section("All BDCs")
+        df_all_bdc = get_performance_summary(_BDC_UNIVERSE)
+        if not df_all_bdc.empty:
+            show_all = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
+                        if c in df_all_bdc.columns]
+            st.dataframe(style_df(df_all_bdc[show_all]), use_container_width=True, hide_index=True)
+
+        section("All Senior Loans & CLO ETFs")
+        df_all_loan = get_performance_summary(_LOAN_CLO_UNIVERSE)
+        if not df_all_loan.empty:
+            show_al = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
+                       if c in df_all_loan.columns]
+            st.dataframe(style_df(df_all_loan[show_al]), use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
