@@ -312,14 +312,18 @@ button[role="tab"][aria-selected="true"] {
 # ══════════════════════════════════════════════════════════════════════════════
 # Yahoo Finance → TradingView symbol mapping
 _TV_SYM = {
-    # Indices
-    "^GSPC": "CAPITALCOM:US500",      "^DJI": "DJ:DJI",       "^NDX": "NASDAQ:NDX",
-    "^IXIC": "NASDAQ:IXIC", "^RUT": "TVC:RUT",       "^VIX": "TVC:VIX",
-    "^FTSE": "TVC:UKX",     "^GDAXI": "XETR:DAX",    "^FCHI": "EURONEXT:PX1",
-    "^STOXX50E": "TVC:SX5E","^N225": "TVC:NI225",    "^HSI": "TVC:HSI",
-    "000001.SS": "SSE:000001","^BSESN": "BSE:SENSEX", "^AXJO": "ASX:XJO",
-    "^KOSPI": "KRX:KOSPI",  "^TWII": "TWSE:Y9999",
-    # Rates
+    # Indices — CAPITALCOM CFD (free, no subscription)
+    "^GSPC":     "CAPITALCOM:US500",  "^DJI":  "CAPITALCOM:US30",
+    "^NDX":      "CAPITALCOM:US100",  "^IXIC": "CAPITALCOM:US100",
+    "^RUT":      "CAPITALCOM:US2000", "^VIX":  "CAPITALCOM:VIX",
+    "^FTSE":     "CAPITALCOM:UK100",  "^GDAXI":"CAPITALCOM:DE40",
+    "^FCHI":     "CAPITALCOM:FR40",   "^STOXX50E":"CAPITALCOM:EU50",
+    "^IBEX":     "CAPITALCOM:ES35",   "FTSEMIB.MI":"CAPITALCOM:IT40",
+    "^N225":     "CAPITALCOM:JP225",  "^HSI":  "CAPITALCOM:HK50",
+    "000001.SS": "CAPITALCOM:CHINA50","^BSESN":"CAPITALCOM:IN50",
+    "^AXJO":     "CAPITALCOM:AUS200", "^KOSPI":"CAPITALCOM:SOUTHKOREA200",
+    "^TWII":     "CAPITALCOM:TAIWAN", "^KOSPI":"CAPITALCOM:SOUTHKOREA200",
+    # Rates — keep TVC (these work)
     "^TNX": "TVC:US10Y",    "^TYX": "TVC:US30Y",
     "^FVX": "TVC:US05Y",    "^IRX": "TVC:US03MY",
     # Commodities — TVC (precious metals + crude) + CAPITALCOM (rest)
