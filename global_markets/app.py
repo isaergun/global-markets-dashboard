@@ -358,6 +358,10 @@ _TV_SYM = {
     "BX":   "NYSE:BX",    "BLK":  "NYSE:BLK",   "OWL":  "NYSE:OWL",
     "APO":  "NYSE:APO",   "KKR":  "NYSE:KKR",   "ARES": "NYSE:ARES",
     "CG":   "NASDAQ:CG",
+    # BDCs
+    "ARCC": "NASDAQ:ARCC", "OBDC": "NYSE:OBDC",  "BXSL": "NYSE:BXSL",
+    "FSK":  "NYSE:FSK",    "MAIN": "NYSE:MAIN",   "HTGC": "NYSE:HTGC",
+    "GBDC": "NASDAQ:GBDC",
     # Senior Loans & CLOs (NYSE Arca → AMEX in TradingView)
     "BKLN": "AMEX:BKLN", "SRLN": "AMEX:SRLN",
     "JAAA": "AMEX:JAAA", "CLOI": "AMEX:CLOI",
@@ -1554,7 +1558,7 @@ with tabs[6]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 8 — PRIVATE CREDIT
 # ══════════════════════════════════════════════════════════════════════════════
-_BDC_UNIVERSE = {
+_AM_UNIVERSE = {
     "Blackstone":       "BX",
     "BlackRock":        "BLK",
     "Blue Owl Capital": "OWL",
@@ -1562,6 +1566,15 @@ _BDC_UNIVERSE = {
     "KKR":              "KKR",
     "Ares Management":  "ARES",
     "Carlyle Group":    "CG",
+}
+_BDC_UNIVERSE = {
+    "Ares Capital":               "ARCC",
+    "Blue Owl BDC":               "OBDC",
+    "Blackstone Secured Lending": "BXSL",
+    "FS KKR Capital":             "FSK",
+    "Main Street Capital":        "MAIN",
+    "Hercules Capital":           "HTGC",
+    "Golub Capital BDC":          "GBDC",
 }
 _LOAN_CLO_UNIVERSE = {
     "Invesco Senior Loan ETF":     "BKLN",
@@ -1571,10 +1584,45 @@ _LOAN_CLO_UNIVERSE = {
 }
 
 with tabs[7]:
-    pc_tabs = st.tabs(["📊 BDCs", "📉 Credit Spreads", "🏦 Senior Loans & CLOs", "📋 All"])
+    pc_tabs = st.tabs(["🏢 Asset Managers", "📊 BDCs", "📉 Credit Spreads", "🏦 Senior Loans & CLOs", "📋 All"])
+
+    # ── Asset Managers ────────────────────────────────────────────────────────
+    with pc_tabs[0]:
+        section("Alternative Asset Managers")
+        am_q = get_bulk_quotes(list(_AM_UNIVERSE.values()))
+        am_cols = st.columns(4)
+        for i, (name, sym) in enumerate(_AM_UNIVERSE.items()):
+            q = am_q.get(sym)
+            with am_cols[i % 4]:
+                stat_card(name, fmt_price(q["price"]) if q else "—",
+                          q.get("pct_change") if q else None)
+
+        _sk_am = "pc_am_chart"
+        if _sk_am not in st.session_state:
+            st.session_state[_sk_am] = list(_AM_UNIVERSE.values())[0]
+
+        _am_dd_col, _ = st.columns([1, 3])
+        with _am_dd_col:
+            _am_names = list(_AM_UNIVERSE.keys())
+            _am_sel   = next((n for n, s in _AM_UNIVERSE.items()
+                              if s == st.session_state[_sk_am]), _am_names[0])
+            _am_pick  = st.selectbox("Manager", _am_names, index=_am_names.index(_am_sel),
+                                     key="am_dd", label_visibility="collapsed")
+            if _AM_UNIVERSE[_am_pick] != st.session_state[_sk_am]:
+                st.session_state[_sk_am] = _AM_UNIVERSE[_am_pick]
+                st.rerun()
+
+        tv_chart(st.session_state[_sk_am], height=400)
+
+        section("Asset Manager Performance")
+        df_am = get_performance_summary(_AM_UNIVERSE)
+        if not df_am.empty:
+            show_am = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
+                       if c in df_am.columns]
+            st.dataframe(style_df(df_am[show_am]), use_container_width=True, hide_index=True)
 
     # ── BDCs ─────────────────────────────────────────────────────────────────
-    with pc_tabs[0]:
+    with pc_tabs[1]:
         section("Business Development Companies")
         bdc_q = get_bulk_quotes(list(_BDC_UNIVERSE.values()))
         bdc_cols = st.columns(4)
@@ -1609,7 +1657,7 @@ with tabs[7]:
             st.dataframe(style_df(df_bdc[show_bdc]), use_container_width=True, hide_index=True)
 
     # ── Credit Spreads ────────────────────────────────────────────────────────
-    with pc_tabs[1]:
+    with pc_tabs[2]:
         section("Credit Spreads & Reference Rates")
 
         _cs_fred = {"HY OAS": "BAMLH0A0HYM2", "BBB OAS": "BAMLC0A4CBBB", "SOFR": "SOFR"}
@@ -1685,7 +1733,7 @@ If SOFR declines, portfolio yields compress; combined with spread pressure on ne
 """, unsafe_allow_html=True)
 
     # ── Senior Loans & CLOs ───────────────────────────────────────────────────
-    with pc_tabs[2]:
+    with pc_tabs[3]:
         section("Senior Loans & CLOs")
         loan_q = get_bulk_quotes(list(_LOAN_CLO_UNIVERSE.values()))
         loan_cols = st.columns(len(_LOAN_CLO_UNIVERSE))
@@ -1720,13 +1768,20 @@ If SOFR declines, portfolio yields compress; combined with spread pressure on ne
             st.dataframe(style_df(df_loan[show_loan]), use_container_width=True, hide_index=True)
 
     # ── All ───────────────────────────────────────────────────────────────────
-    with pc_tabs[3]:
+    with pc_tabs[4]:
+        section("All Asset Managers")
+        df_all_am = get_performance_summary(_AM_UNIVERSE)
+        if not df_all_am.empty:
+            show_am = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
+                       if c in df_all_am.columns]
+            st.dataframe(style_df(df_all_am[show_am]), use_container_width=True, hide_index=True)
+
         section("All BDCs")
         df_all_bdc = get_performance_summary(_BDC_UNIVERSE)
         if not df_all_bdc.empty:
-            show_all = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
+            show_bdc = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
                         if c in df_all_bdc.columns]
-            st.dataframe(style_df(df_all_bdc[show_all]), use_container_width=True, hide_index=True)
+            st.dataframe(style_df(df_all_bdc[show_bdc]), use_container_width=True, hide_index=True)
 
         section("All Senior Loans & CLO ETFs")
         df_all_loan = get_performance_summary(_LOAN_CLO_UNIVERSE)
