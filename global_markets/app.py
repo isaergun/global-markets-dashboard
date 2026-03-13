@@ -1112,8 +1112,10 @@ with tabs[2]:
             st.plotly_chart(fig_yc, use_container_width=True)
 
         yc2y = float(yc_data[yc_data["maturity"] == "2Y"]["yield"].iloc[0]) if yc_data is not None and "2Y" in yc_data["maturity"].values else None
+        _h2y_short = get_us_yield_history("2Y", lookback_days=5)
+        _2y_chg = float((_h2y_short.iloc[-1] - _h2y_short.iloc[-2]) / _h2y_short.iloc[-2] * 100) if _h2y_short is not None and len(_h2y_short) >= 2 else None
         kc1, kc2, kc3, kc4 = st.columns(4)
-        with kc1: stat_card("US 2Y", f"{yc2y:.3f}%" if yc2y else "—")
+        with kc1: stat_card("US 2Y", f"{yc2y:.3f}%" if yc2y else "—", _2y_chg)
         for (label, sym), col in zip(YIELD_SYMBOLS.items(), [kc2, kc3, kc4]):
             q = yld_q.get(sym)
             with col: stat_card(label, f"{q['price']:.3f}%" if q else "—",
@@ -1197,28 +1199,26 @@ with tabs[2]:
         x_labels = [t for t in tenor_order if t in jp_yields]
         y_vals   = [jp_yields[t] for t in x_labels]
 
-        col_jyc, col_jyd = st.columns([3, 2])
-        with col_jyc:
-            if x_labels:
-                fig_jyc = go.Figure()
-                fig_jyc.add_trace(go.Scatter(
-                    x=x_labels, y=y_vals,
-                    mode="lines+markers",
-                    line=dict(color="#e11d48", width=2.5),
-                    marker=dict(size=9, color="#e11d48",
-                                line=dict(color="#f4f5f7", width=2)),
-                    fill="tozeroy", fillcolor="rgba(225,29,72,0.07)",
-                    hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
-                ))
-                layout_jyc = base_layout(280)
-                layout_jyc["yaxis"]["ticksuffix"] = "%"
-                layout_jyc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
-                fig_jyc.update_layout(**layout_jyc)
-                st.plotly_chart(fig_jyc, use_container_width=True, key="jp_yc_chart")
-        with col_jyd:
-            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-            for tenor in x_labels:
-                stat_card(f"JGB {tenor}", f"{jp_yields[tenor]:.3f}%")
+        if x_labels:
+            fig_jyc = go.Figure()
+            fig_jyc.add_trace(go.Scatter(
+                x=x_labels, y=y_vals,
+                mode="lines+markers",
+                line=dict(color="#e11d48", width=2.5),
+                marker=dict(size=9, color="#e11d48",
+                            line=dict(color="#f4f5f7", width=2)),
+                fill="tozeroy", fillcolor="rgba(225,29,72,0.07)",
+                hovertemplate="%{x}: %{y:.3f}%<extra></extra>",
+            ))
+            layout_jyc = base_layout(280)
+            layout_jyc["yaxis"]["ticksuffix"] = "%"
+            layout_jyc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
+            fig_jyc.update_layout(**layout_jyc)
+            st.plotly_chart(fig_jyc, use_container_width=True, key="jp_yc_chart")
+
+            jcols = st.columns(len(x_labels))
+            for col, tenor in zip(jcols, x_labels):
+                with col: stat_card(f"JGB {tenor}", f"{jp_yields[tenor]:.3f}%")
 
         # ── Japan bond ETF performance ────────────────────────────────────────
         section("Japan Bond ETF Performance")
