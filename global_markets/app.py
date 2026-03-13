@@ -1786,6 +1786,20 @@ If SOFR declines, portfolio yields compress; combined with spread pressure on ne
                          if c in df_loan.columns]
             st.dataframe(style_df(df_loan[show_loan]), use_container_width=True, hide_index=True)
 
+        st.markdown("""
+<div style="background:#1e2130;border-radius:10px;padding:16px 20px;margin-top:4px;font-size:12px;color:#8891a5;line-height:1.8">
+<b style="color:#c9d1e0;font-size:13px">📖 Senior Loans & CLOs — what are they?</b><br><br>
+<b style="color:#c9d1e0">Senior loans</b> (leveraged loans) are floating-rate, secured loans made to below-investment-grade companies —
+structurally similar to what private credit funds originate, but syndicated and traded in public markets.
+ETFs like BKLN and SRLN offer liquid exposure to this market and act as a <b style="color:#c9d1e0">real-time price discovery mechanism</b>
+for private credit spreads, which are marked only quarterly.<br><br>
+<b style="color:#c9d1e0">CLOs</b> (Collateralized Loan Obligations) repackage pools of leveraged loans into tranches.
+AAA-rated CLO tranches (JAAA, CLOI) are among the highest-quality floating-rate instruments available —
+their spread over SOFR reflects institutional demand for leveraged loan exposure with minimal credit risk.
+Widening CLO AAA spreads are an early signal of stress in the broader leveraged finance market.
+</div>
+""", unsafe_allow_html=True)
+
     # ── All ───────────────────────────────────────────────────────────────────
     with pc_tabs[4]:
         section("All Asset Managers")
