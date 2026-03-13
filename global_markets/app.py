@@ -628,6 +628,8 @@ def line_chart(hist_df, col="Close", title="", color="#4a90e2", height=260, yfor
     layout["title"] = dict(text=title, font=dict(size=11, color="#6b7494"), x=0)
     if yformat:
         layout["yaxis"]["ticksuffix"] = yformat
+    pad = (y.max() - y.min()) * 0.05 if y.max() != y.min() else y.mean() * 0.02
+    layout["yaxis"]["range"] = [float(y.min() - pad), float(y.max() + pad)]
     fig.update_layout(**layout)
     return fig
 
@@ -1062,11 +1064,14 @@ with tabs[1]:
             fig_dd = make_subplots(rows=3, cols=1, shared_xaxes=True,
                                    subplot_titles=["Price","Volume vs 20D Avg","Flow Proxy"],
                                    vertical_spacing=0.07, row_heights=[0.42,0.28,0.30])
+            _close = fh["Close"].dropna()
+            _pad = (_close.max() - _close.min()) * 0.05 if _close.max() != _close.min() else _close.mean() * 0.02
             fig_dd.add_trace(go.Scatter(
                 x=fh[dc], y=fh["Close"], mode="lines",
                 line=dict(color=PALETTE[0], width=2),
                 fill="tozeroy", fillcolor="rgba(74,144,226,0.07)",
             ), row=1, col=1)
+            fig_dd.update_yaxes(range=[float(_close.min()-_pad), float(_close.max()+_pad)], row=1, col=1)
             fig_dd.add_trace(go.Bar(
                 x=fh[dc], y=fh["Volume"],
                 marker=dict(color=PALETTE[0], opacity=0.5, line=dict(width=0)),
