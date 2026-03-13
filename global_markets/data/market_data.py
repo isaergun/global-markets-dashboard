@@ -177,14 +177,19 @@ def get_etf_info(ticker: str) -> dict:
         except Exception:
             pass
 
-    # Fallback 3: shares_outstanding × last_price via fast_info (lightweight, rarely blocked)
+    # Fallback 3: market_cap via fast_info (== AUM for ETFs, lightweight, rarely blocked)
     if total_assets is None:
         try:
             fi = yf.Ticker(ticker).fast_info
-            shares = getattr(fi, "shares", None)
-            price  = getattr(fi, "last_price", None) or getattr(fi, "previous_close", None)
-            if shares and price:
-                total_assets = float(shares) * float(price)
+            mc = getattr(fi, "market_cap", None)
+            if mc and float(mc) > 0:
+                total_assets = float(mc)
+            else:
+                # last resort: shares × price
+                shares = getattr(fi, "shares", None)
+                price  = getattr(fi, "last_price", None) or getattr(fi, "previous_close", None)
+                if shares and price:
+                    total_assets = float(shares) * float(price)
         except Exception:
             pass
 
