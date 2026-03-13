@@ -1621,6 +1621,18 @@ with tabs[7]:
                        if c in df_am.columns]
             st.dataframe(style_df(df_am[show_am]), use_container_width=True, hide_index=True)
 
+        st.markdown("""
+<div style="background:#1e2130;border-radius:10px;padding:16px 20px;margin-top:4px;font-size:12px;color:#8891a5;line-height:1.8">
+<b style="color:#c9d1e0;font-size:13px">📖 Why track asset managers here?</b><br><br>
+These firms <b style="color:#c9d1e0">originate, manage, and deploy</b> the majority of global private credit capital.
+Their stock prices serve as a real-time sentiment gauge for the private credit market —
+rising prices signal strong fundraising, deal flow, and fee income, while a selloff often precedes a broader tightening in credit availability.<br><br>
+<b style="color:#c9d1e0">Fee-related earnings (FRE)</b> are driven by AUM growth and are largely recurring.
+<b style="color:#c9d1e0">Performance / carried interest</b> is more cyclical and depends on exit activity and markups.
+In a high-rate environment, private credit AUM tends to grow as institutional allocations shift away from public fixed income.
+</div>
+""", unsafe_allow_html=True)
+
     # ── BDCs ─────────────────────────────────────────────────────────────────
     with pc_tabs[1]:
         section("Business Development Companies")
@@ -1655,6 +1667,21 @@ with tabs[7]:
             show_bdc = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
                         if c in df_bdc.columns]
             st.dataframe(style_df(df_bdc[show_bdc]), use_container_width=True, hide_index=True)
+
+        st.markdown("""
+<div style="background:#1e2130;border-radius:10px;padding:16px 20px;margin-top:4px;font-size:12px;color:#8891a5;line-height:1.8">
+<b style="color:#c9d1e0;font-size:13px">📖 What is a BDC?</b><br><br>
+Business Development Companies (BDCs) are <b style="color:#c9d1e0">publicly traded investment vehicles</b> that provide debt and equity financing
+to middle-market companies — the same borrowers that private credit funds target.
+They are required by law to distribute at least 90% of taxable income as dividends, making them
+a <b style="color:#c9d1e0">high-yield, income-oriented</b> proxy for private credit returns.<br><br>
+<b style="color:#c9d1e0">Key metrics to watch:</b>
+NAV (Net Asset Value) per share vs. stock price — a discount to NAV signals market stress or portfolio concerns;
+a premium signals demand.
+NII (Net Investment Income) — driven directly by SOFR + spread on floating-rate loans.
+Non-accruals — loans no longer paying interest; a rising non-accrual rate is an early warning of credit deterioration.
+</div>
+""", unsafe_allow_html=True)
 
     # ── Credit Spreads ────────────────────────────────────────────────────────
     with pc_tabs[2]:
