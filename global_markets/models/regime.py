@@ -2,8 +2,8 @@
 Cross-Market Regime Indicator
 ─────────────────────────────
 Methodology:
-  1. Fetch ~2 years of daily closes for 5 macro indicators
-  2. Compute rolling 252-day z-score + 20D/60D momentum for each
+  1. Fetch ~7 years of weekly closes for 5 macro indicators
+  2. Compute rolling 52-week z-score + 4W/13W momentum for each
   3. Build composite risk-on score (signs aligned so +score = risk-on)
   4. Fit a 3-component GMM on full history → label regimes
   5. Return current regime, probabilities, and full history for charting
@@ -27,10 +27,11 @@ INDICATORS = {
     "HYG/TLT":    {"tickers": ["HYG", "TLT"],  "ratio": True,  "risk_on_dir": +1},
 }
 
-ZSCORE_WINDOW  = 252   # rolling window for z-score
-MOM_FAST       = 20    # fast momentum window (days)
-MOM_SLOW       = 60    # slow momentum window (days)
-LOOKBACK_YEARS = 3     # history to fetch
+INTERVAL       = "1wk"  # weekly bars
+ZSCORE_WINDOW  = 52    # rolling window for z-score (1 year of weeks)
+MOM_FAST       = 4     # fast momentum window (4 weeks ≈ 1 month)
+MOM_SLOW       = 13    # slow momentum window (13 weeks ≈ 1 quarter)
+LOOKBACK_YEARS = 7     # history to fetch
 
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ def _fetch_closes(tickers: tuple[str, ...]) -> pd.DataFrame:
     raw = yf.download(
         list(tickers),
         period=f"{LOOKBACK_YEARS}y",
-        interval="1d",
+        interval=INTERVAL,
         auto_adjust=True,
         progress=False,
     )
