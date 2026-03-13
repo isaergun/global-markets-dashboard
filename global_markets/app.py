@@ -700,6 +700,13 @@ def style_df(df: pd.DataFrame, pct_cols=None, flow_cols=None):
         formatters["Rel. Vol."] = lambda v: f"{v:.2f}x" if not pd.isna(v) else "—"
 
     styled = df.style.format(formatters, na_rep="—")
+    styled = styled.set_properties(**{
+        "background-color": "#ffffff",
+        "color": "#111827",
+        "border-color": "#f3f4f6",
+        "font-size": "12px",
+        "font-family": "Inter, sans-serif",
+    })
     for col in pct_cols:
         styled = styled.applymap(pct_color, subset=[col])
     for col in flow_cols:
@@ -708,13 +715,6 @@ def style_df(df: pd.DataFrame, pct_cols=None, flow_cols=None):
                       else ("color:#dc2626;font-weight:600" if not pd.isna(v) and v < 0 else "color:#9ca3af"),
             subset=[col]
         )
-    styled = styled.set_properties(**{
-        "background-color": "#ffffff",
-        "color": "#111827",
-        "border-color": "#f3f4f6",
-        "font-size": "12px",
-        "font-family": "Inter, sans-serif",
-    })
     styled = styled.set_table_styles([
         {"selector": "th", "props": [
             ("background-color", "#f9fafb"),
