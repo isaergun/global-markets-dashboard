@@ -1626,10 +1626,7 @@ with tabs[7]:
 <b style="color:#c9d1e0;font-size:13px">📖 Why track asset managers here?</b><br><br>
 These firms <b style="color:#c9d1e0">originate, manage, and deploy</b> the majority of global private credit capital.
 Their stock prices serve as a real-time sentiment gauge for the private credit market —
-rising prices signal strong fundraising, deal flow, and fee income, while a selloff often precedes a broader tightening in credit availability.<br><br>
-<b style="color:#c9d1e0">Fee-related earnings (FRE)</b> are driven by AUM growth and are largely recurring.
-<b style="color:#c9d1e0">Performance / carried interest</b> is more cyclical and depends on exit activity and markups.
-In a high-rate environment, private credit AUM tends to grow as institutional allocations shift away from public fixed income.
+rising prices signal strong fundraising, deal flow, and fee income, while a selloff often precedes a broader tightening in credit availability.
 </div>
 """, unsafe_allow_html=True)
 
@@ -1674,12 +1671,7 @@ In a high-rate environment, private credit AUM tends to grow as institutional al
 Business Development Companies (BDCs) are <b style="color:#c9d1e0">publicly traded investment vehicles</b> that provide debt and equity financing
 to middle-market companies — the same borrowers that private credit funds target.
 They are required by law to distribute at least 90% of taxable income as dividends, making them
-a <b style="color:#c9d1e0">high-yield, income-oriented</b> proxy for private credit returns.<br><br>
-<b style="color:#c9d1e0">Key metrics to watch:</b>
-NAV (Net Asset Value) per share vs. stock price — a discount to NAV signals market stress or portfolio concerns;
-a premium signals demand.
-NII (Net Investment Income) — driven directly by SOFR + spread on floating-rate loans.
-Non-accruals — loans no longer paying interest; a rising non-accrual rate is an early warning of credit deterioration.
+a <b style="color:#c9d1e0">high-yield, income-oriented</b> proxy for private credit returns.
 </div>
 """, unsafe_allow_html=True)
 
