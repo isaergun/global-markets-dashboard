@@ -354,10 +354,10 @@ _TV_SYM = {
     "SPY": "AMEX:SPY",   "QQQ": "NASDAQ:QQQ",  "IWM": "AMEX:IWM",
     "GLD": "AMEX:GLD",   "SLV": "AMEX:SLV",    "USO": "AMEX:USO",
     "IBIT": "NASDAQ:IBIT","FBTC": "NASDAQ:FBTC","ETHA": "NASDAQ:ETHA",
-    # BDCs
-    "ARCC": "NASDAQ:ARCC", "OBDC": "NYSE:OBDC",  "BXSL": "NYSE:BXSL",
-    "FSK":  "NYSE:FSK",    "MAIN": "NYSE:MAIN",   "HTGC": "NYSE:HTGC",
-    "GBDC": "NASDAQ:GBDC", "APO":  "NYSE:APO",
+    # Alt Asset Managers
+    "BX":   "NYSE:BX",    "BLK":  "NYSE:BLK",   "OWL":  "NYSE:OWL",
+    "APO":  "NYSE:APO",   "KKR":  "NYSE:KKR",   "ARES": "NYSE:ARES",
+    "CG":   "NASDAQ:CG",
     # Senior Loans & CLOs (NYSE Arca → AMEX in TradingView)
     "BKLN": "AMEX:BKLN", "SRLN": "AMEX:SRLN",
     "JAAA": "AMEX:JAAA", "CLOI": "AMEX:CLOI",
@@ -1555,14 +1555,13 @@ with tabs[6]:
 # TAB 8 — PRIVATE CREDIT
 # ══════════════════════════════════════════════════════════════════════════════
 _BDC_UNIVERSE = {
-    "Ares Capital":               "ARCC",
-    "Blue Owl Capital":           "OBDC",
-    "Blackstone Secured Lending": "BXSL",
-    "FS KKR Capital":             "FSK",
-    "Main Street Capital":        "MAIN",
-    "Hercules Capital":           "HTGC",
-    "Golub Capital BDC":          "GBDC",
-    "Apollo Global Management":   "APO",
+    "Blackstone":       "BX",
+    "BlackRock":        "BLK",
+    "Blue Owl Capital": "OWL",
+    "Apollo":           "APO",
+    "KKR":              "KKR",
+    "Ares Management":  "ARES",
+    "Carlyle Group":    "CG",
 }
 _LOAN_CLO_UNIVERSE = {
     "Invesco Senior Loan ETF":     "BKLN",
