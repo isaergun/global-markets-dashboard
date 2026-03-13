@@ -2027,21 +2027,22 @@ with tabs[8]:
         idx_hist   = signals["composite"].dropna().index
 
         fig_prob = go.Figure()
-        prob_colors_rgba = {
-            "Risk-On":  "rgba(22,163,74,0.6)",
-            "Neutral":  "rgba(245,158,11,0.6)",
-            "Risk-Off": "rgba(220,38,38,0.6)",
+        prob_bar_colors = {
+            "Risk-On":  REGIME_COLORS["Risk-On"],
+            "Neutral":  REGIME_COLORS["Neutral"],
+            "Risk-Off": REGIME_COLORS["Risk-Off"],
         }
         for ci in range(gmm_hist.n_components):
             lbl = lmap_hist[ci]
-            fig_prob.add_trace(go.Scatter(
+            fig_prob.add_trace(go.Bar(
                 x=idx_hist, y=probs_hist[:, ci],
-                mode="lines", name=lbl, stackgroup="one",
-                line=dict(width=0),
-                fillcolor=prob_colors_rgba[lbl],
+                name=lbl,
+                marker_color=prob_bar_colors[lbl],
+                opacity=0.75,
                 hovertemplate=f"{lbl}<br>%{{x|%Y-%m-%d}}<br>%{{y:.0%}}<extra></extra>",
             ))
         fig_prob.update_layout(
+            barmode="stack",
             height=260, margin=dict(l=0, r=0, t=10, b=0),
             paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
             legend=dict(orientation="h", y=-0.2),
