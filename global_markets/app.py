@@ -1086,7 +1086,9 @@ with tabs[1]:
 
         # ── Deep Dive ─────────────────────────────────────────────────────
         section("ETF Deep Dive")
-        sel = st.selectbox("Select ETF", tickers, key="etf_deep", label_visibility="collapsed")
+        deep_labels = [f"{t} — {etf_names.get(t, t)}" for t in tickers]
+        deep_idx = st.selectbox("Select ETF", deep_labels, key="etf_deep", label_visibility="collapsed")
+        sel = tickers[deep_labels.index(deep_idx)]
         fd2 = compute_etf_flow_proxy(sel)
         if fd2 and "flow_history" in fd2:
             fh = fd2["flow_history"].reset_index()
