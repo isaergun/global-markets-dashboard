@@ -354,13 +354,13 @@ _TV_SYM = {
     "SPY": "AMEX:SPY",   "QQQ": "NASDAQ:QQQ",  "IWM": "AMEX:IWM",
     "GLD": "AMEX:GLD",   "SLV": "AMEX:SLV",    "USO": "AMEX:USO",
     "IBIT": "NASDAQ:IBIT","FBTC": "NASDAQ:FBTC","ETHA": "NASDAQ:ETHA",
-    # BDCs
-    "ARCC": "NASDAQ:ARCC", "OBDC": "NYSE:OBDC",  "BXSL": "NYSE:BXSL",
-    "FSK":  "NYSE:FSK",    "MAIN": "NYSE:MAIN",   "HTGC": "NASDAQ:HTGC",
+    # BDCs (NASDAQ-listed use NASDAQ:, NYSE-listed use NYSE:)
+    "ARCC": "NASDAQ:ARCC", "OBDC": "NASDAQ:OBDC", "BXSL": "NYSE:BXSL",
+    "FSK":  "NYSE:FSK",    "MAIN": "NASDAQ:MAIN",  "HTGC": "NASDAQ:HTGC",
     "GBDC": "NASDAQ:GBDC",
-    # Senior Loans & CLOs
-    "BKLN": "NYSE:BKLN", "SRLN": "NYSE:SRLN",
-    "JAAA": "NYSE:JAAA", "CLOI": "NYSE:CLOI",
+    # Senior Loans & CLOs (NYSE Arca → AMEX in TradingView)
+    "BKLN": "AMEX:BKLN", "SRLN": "AMEX:SRLN",
+    "JAAA": "AMEX:JAAA", "CLOI": "AMEX:CLOI",
 }
 
 def tv_chart(yf_symbol: str, height: int = 380, interval: str = "D",
