@@ -1120,6 +1120,10 @@ with tabs[2]:
             layout_yc = base_layout(280)
             layout_yc["yaxis"]["ticksuffix"] = "%"
             layout_yc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
+            layout_yc["yaxis"]["showgrid"] = True
+            layout_yc["yaxis"]["gridcolor"] = "rgba(255,255,255,0.07)"
+            layout_yc["xaxis"]["showgrid"] = True
+            layout_yc["xaxis"]["gridcolor"] = "rgba(255,255,255,0.07)"
             fig_yc.update_layout(**layout_yc)
             st.plotly_chart(fig_yc, use_container_width=True)
 
@@ -1205,6 +1209,10 @@ with tabs[2]:
             layout_jyc = base_layout(280)
             layout_jyc["yaxis"]["ticksuffix"] = "%"
             layout_jyc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
+            layout_jyc["yaxis"]["showgrid"] = True
+            layout_jyc["yaxis"]["gridcolor"] = "rgba(255,255,255,0.07)"
+            layout_jyc["xaxis"]["showgrid"] = True
+            layout_jyc["xaxis"]["gridcolor"] = "rgba(255,255,255,0.07)"
             fig_jyc.update_layout(**layout_jyc)
             st.plotly_chart(fig_jyc, use_container_width=True, key="jp_yc_chart")
 
