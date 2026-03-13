@@ -19,7 +19,6 @@ INDICES = {
     "Asia": {
         "Nikkei 225": "^N225",
         "Hang Seng": "^HSI",
-        "Shanghai": "000001.SS",
     },
 }
 
