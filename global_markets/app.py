@@ -1664,24 +1664,22 @@ with tabs[7]:
         st.markdown("""
 <div style="background:#1e2130;border-radius:10px;padding:16px 20px;margin-top:4px;font-size:12px;color:#8891a5;line-height:1.8">
 
-<b style="color:#c9d1e0;font-size:13px">📖 Bu grafikleri nasıl okumalısınız?</b><br><br>
+<b style="color:#c9d1e0;font-size:13px">📖 How to read these charts</b><br><br>
 
 <b style="color:#c9d1e0">HY OAS (High Yield Option-Adjusted Spread)</b><br>
-Yüksek getirili (sub-investment grade, yani BB ve altı) tahvillerin ABD Hazine bonolarına göre fazladan ödediği faiz farkı.
-Private credit fonları çoğunlukla bu segmentin biraz üzerinde fiyatlanır.
-<b style="color:#dc2626">Spread yükseliyorsa</b> → piyasa riski arttı, borrower'lar daha pahalı borçlanıyor, default korkusu büyüyor.
-<b style="color:#16a34a">Spread düşüyorsa</b> → iştah açık, kredi koşulları gevşiyor, sermaye private credit'e akıyor.<br><br>
+The extra yield sub-investment grade bonds (BB and below) pay over US Treasuries. Private credit funds typically price slightly above this segment.
+<b style="color:#dc2626">Spread widening</b> → risk-off, borrowers face higher funding costs, default fears rising.
+<b style="color:#16a34a">Spread tightening</b> → risk appetite open, credit conditions easing, capital flowing into private credit.<br><br>
 
-<b style="color:#c9d1e0">BBB OAS (Investment Grade Alt Bandı)</b><br>
-Yatırım yapılabilir seviyenin en alt basamağı. Private credit direct lending'in sıklıkla rekabet ettiği segment.
-BBB spreadi genişliyorsa investment grade ile high yield arasındaki fark kapanıyor demektir; bu durum private credit için fırsatçı fiyatlama ortamı yaratır.
-Tarihsel eşik: <b style="color:#f59e0b">150 bps üzeri</b> stres sinyali, <b style="color:#16a34a">100 bps altı</b> sıkışık/rekabetçi ortam.<br><br>
+<b style="color:#c9d1e0">BBB OAS (Investment Grade — Bottom Rung)</b><br>
+The lowest tier of investment grade — the segment private credit direct lending most directly competes with.
+When BBB spreads widen, the gap between IG and HY narrows, creating opportunistic pricing for private lenders.
+Historical thresholds: <b style="color:#f59e0b">&gt;150 bps</b> signals stress · <b style="color:#16a34a">&lt;100 bps</b> signals a tight / competitive environment.<br><br>
 
 <b style="color:#c9d1e0">SOFR (Secured Overnight Financing Rate)</b><br>
-Private credit kredilerinin büyük çoğunluğu <b>SOFR + spread</b> yapısında (floating rate) kurulur.
-SOFR yükseldikçe mevcut portföydeki faiz gelirleri otomatik artar → BDC'ler ve private credit fonları için NII (net faiz geliri) yükselir.
-SOFR düşmeye başlarsa portföy getirileri de sıkışır; yeni anlaşmalardaki spread baskısıyla birleşince NII marjı daralabilir.
-<b>Şu an:</b> SOFR ~%4+ seviyesi tarihsel olarak private credit için elverişli getiri ortamıdır.
+Most private credit loans are structured as <b>SOFR + spread</b> (floating rate). As SOFR rises, interest income on existing portfolios increases automatically → higher NII for BDCs and private credit funds.
+If SOFR declines, portfolio yields compress; combined with spread pressure on new deals, NII margins may narrow.
+<b>Current context:</b> SOFR at ~4%+ is historically favorable for private credit returns.
 
 </div>
 """, unsafe_allow_html=True)
