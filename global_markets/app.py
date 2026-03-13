@@ -1731,8 +1731,6 @@ a <b style="color:#c9d1e0">high-yield, income-oriented</b> proxy for private cre
         st.markdown("""
 <div style="background:#1e2130;border-radius:10px;padding:16px 20px;margin-top:4px;font-size:12px;color:#8891a5;line-height:1.8">
 
-<b style="color:#c9d1e0;font-size:13px">📖 How to read these charts</b><br><br>
-
 <b style="color:#c9d1e0">HY OAS (High Yield Option-Adjusted Spread)</b><br>
 The extra yield sub-investment grade bonds (BB and below) pay over US Treasuries. Private credit funds typically price slightly above this segment.
 <b style="color:#dc2626">Spread widening</b> → risk-off, borrowers face higher funding costs, default fears rising.
