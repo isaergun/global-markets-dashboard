@@ -21,9 +21,6 @@ INDICES = {
         "Hang Seng": "^HSI",
         "Shanghai": "000001.SS",
     },
-    "Turkey": {
-        "BIST 100": "XU100.IS",
-    },
 }
 
 YIELDS = {
