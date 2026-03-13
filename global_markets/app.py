@@ -1216,18 +1216,11 @@ with tabs[2]:
             fig_jyc.update_layout(**layout_jyc)
             st.plotly_chart(fig_jyc, use_container_width=True, key="jp_yc_chart")
 
-            jcols = st.columns(len(x_labels))
-            for col, tenor in zip(jcols, x_labels):
-                with col: stat_card(f"JGB {tenor}", f"{jp_yields[tenor]:.3f}%")
-
-        # ── Japan bond ETF performance ────────────────────────────────────────
-        section("Japan Bond ETF Performance")
-        jp_etf_map = {"iShares Japan Govt Bond ETF (TSE)": "1482.T"}
-        df_jp_bonds = get_performance_summary(jp_etf_map)
-        if not df_jp_bonds.empty:
-            show_jp = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_jp_bonds.columns]
-            st.dataframe(style_df(df_jp_bonds[show_jp]), use_container_width=True, hide_index=True)
-        st.caption("1482.T trades in JPY on Tokyo Stock Exchange. Price moves inversely to JGB yields.")
+        _jp_tenors = ["2Y", "5Y", "10Y", "30Y"]
+        jcols = st.columns(4)
+        for col, tenor in zip(jcols, _jp_tenors):
+            val = jp_yields.get(tenor)
+            with col: stat_card(f"JGB {tenor}", f"{val:.3f}%" if val else "—")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
