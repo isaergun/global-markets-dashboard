@@ -1265,7 +1265,8 @@ with tabs[3]:
     _COMM_ETF_MAP = {
         "Energy":          {"US Oil Fund": "USO", "US Natural Gas Fund": "UNG",
                             "Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
-        "Precious Metals": {"SPDR Gold Shares": "GLD", "iShares Silver Trust": "SLV",
+        "Precious Metals": {"SPDR Gold Shares": "GLD", "iShares Gold Trust": "IAU",
+                            "SPDR Gold MiniShares": "GLDM", "iShares Silver Trust": "SLV",
                             "Gold Miners ETF": "GDX", "Junior Gold Miners": "GDXJ"},
         "Base Metals":     {"US Copper Index": "CPER", "Invesco Commodity": "PDBC"},
         "Agricultural":    {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
