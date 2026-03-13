@@ -859,11 +859,11 @@ with tabs[0]:
     # ── Region tabs ─────────────────────────────────────────────────────────
     reg_tabs = st.tabs(list(INDICES.keys()))
     for ri, (region, items) in enumerate(INDICES.items()):
-        with reg_tabs[ri]:
-            sym_map = dict(items)
-            df_perf = get_performance_summary(sym_map)
+        _sk = f"idx_chart_{ri}"
+        if _sk not in st.session_state:
+            st.session_state[_sk] = list(items.values())[0]
 
-            # Mini metric grid
+        with reg_tabs[ri]:
             cols = st.columns(min(5, len(items)))
             for i, (name, sym) in enumerate(items.items()):
                 q = idx_q.get(sym)
@@ -871,15 +871,20 @@ with tabs[0]:
                     stat_card(name, fmt_price(q["price"]) if q else "—",
                               q.get("pct_change") if q else None)
 
-            # Performance table
-            if not df_perf.empty:
-                show = [c for c in ["Name","Price","1D %","5D %","1M %","YTD %"] if c in df_perf.columns]
-                st.dataframe(style_df(df_perf[show]), use_container_width=True, hide_index=True)
+            _dd_col, _ = st.columns([1, 3])
+            with _dd_col:
+                _names = list(items.keys())
+                _sel   = next((n for n, s in items.items()
+                               if s == st.session_state[_sk]), _names[0])
+                _pick  = st.selectbox("Chart", _names, index=_names.index(_sel),
+                                      key=f"idx_dd_{ri}", label_visibility="collapsed")
+                if items[_pick] != st.session_state[_sk]:
+                    st.session_state[_sk] = items[_pick]
+                    st.rerun()
 
-            # TradingView chart for the first (main) index of each region
-            main_sym = list(items.values())[0]
-            if main_sym in _TV_SYM:
-                tv_chart(main_sym, height=420, interval="D")
+            _csym = st.session_state[_sk]
+            if _csym in _TV_SYM:
+                tv_chart(_csym, height=420, interval="D")
 
     # ── Equity ETF Performance ───────────────────────────────────────────────
     section("Equity ETF Performance")
