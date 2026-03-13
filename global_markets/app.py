@@ -1120,24 +1120,6 @@ with tabs[2]:
                 stat_card(label, f"{q['price']:.3f}%" if q else "—",
                           q.get("pct_change") if q else None)
 
-        section("10-Year Treasury")
-        tv_chart("^TNX", height=340, interval="D", style="2")
-
-        section("Yield Spread: 10Y – 5Y (Inversion Watch)")
-        fvx = get_history("^FVX","3mo")
-        tnx2 = get_history("^TNX","3mo")
-        if fvx is not None and tnx2 is not None:
-            spread = (tnx2["Close"] - fvx["Close"]).dropna()
-            sdf = spread.reset_index(); sdf.columns = ["Date","Spread"]
-            sc = ["#16a34a" if v >= 0 else "#dc2626" for v in sdf["Spread"]]
-            fig_sp = go.Figure(go.Bar(x=sdf["Date"], y=sdf["Spread"],
-                                       marker=dict(color=sc, opacity=0.8, line=dict(width=0))))
-            fig_sp.add_hline(y=0, line_dash="dot", line_color="#2d3142", opacity=0.8)
-            layout_sp = base_layout(200, dict(l=4,r=4,t=4,b=4))
-            layout_sp["yaxis"]["ticksuffix"] = "%"
-            fig_sp.update_layout(**layout_sp)
-            st.plotly_chart(fig_sp, use_container_width=True)
-
         section("2Y / 10Y Yields & Spread (Inversion Watch)")
         h2y  = get_us_yield_history("2Y",  lookback_days=365)
         h10y = get_us_yield_history("10Y", lookback_days=365)
