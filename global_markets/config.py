@@ -159,6 +159,11 @@ ETF_UNIVERSE = {
         "BITB":  {"name": "Bitwise Bitcoin ETF",     "benchmark": "BTC-USD"},
         "ETHA":  {"name": "iShares Ethereum Trust",  "benchmark": "ETH-USD"},
         "FETH":  {"name": "Fidelity Ethereum ETF",   "benchmark": "ETH-USD"},
+        "BITQ":  {"name": "Bitwise Crypto Industry", "benchmark": "BTC-USD"},
+        "BLOK":  {"name": "Amplify Blockchain",      "benchmark": "BTC-USD"},
+        "FDIG":  {"name": "Fidelity Crypto Industry","benchmark": "BTC-USD"},
+        "DAPP":  {"name": "VanEck Digital Transform","benchmark": "BTC-USD"},
+        "BKCH":  {"name": "Global X Blockchain",     "benchmark": "BTC-USD"},
     },
     "Private Credit": {
         "BKLN":  {"name": "Invesco Senior Loan ETF",     "benchmark": "^TNX"},

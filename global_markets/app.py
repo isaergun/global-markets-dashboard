@@ -365,6 +365,9 @@ _TV_SYM = {
     # Senior Loans & CLOs (NYSE Arca → AMEX in TradingView)
     "BKLN": "AMEX:BKLN", "SRLN": "AMEX:SRLN",
     "JAAA": "AMEX:JAAA", "CLOI": "AMEX:CLOI",
+    # Other Crypto ETFs (NYSE Arca → AMEX)
+    "BITQ": "AMEX:BITQ", "BLOK": "AMEX:BLOK", "FDIG": "AMEX:FDIG",
+    "DAPP": "AMEX:DAPP", "BKCH": "AMEX:BKCH",
 }
 
 def tv_chart(yf_symbol: str, height: int = 380, interval: str = "D",
@@ -1415,7 +1418,7 @@ with tabs[5]:
     tv_chart(sel_sym, height=440, interval="D")
 
     # ── Bitcoin & Ethereum Spot ETFs ──────────────────────────────────────────
-    cr_etf_tabs = st.tabs(["₿ Bitcoin ETFs", "Ξ Ethereum ETFs"])
+    cr_etf_tabs = st.tabs(["₿ Bitcoin ETFs", "Ξ Ethereum ETFs", "🔗 Other Crypto ETFs"])
 
     _btc_etfs = {
         "iShares Bitcoin Trust (IBIT)":       "IBIT",
@@ -1432,6 +1435,13 @@ with tabs[5]:
         "Grayscale Ethereum Trust (ETHE)":     "ETHE",
         "VanEck Ethereum ETF (ETHV)":          "ETHV",
     }
+    _other_crypto_etfs = {
+        "Bitwise Crypto Industry Innovators (BITQ)": "BITQ",
+        "Amplify Transformational Data Sharing (BLOK)": "BLOK",
+        "Fidelity Crypto Industry & Digital Payments (FDIG)": "FDIG",
+        "VanEck Digital Transformation (DAPP)":      "DAPP",
+        "Global X Blockchain (BKCH)":                "BKCH",
+    }
 
     with cr_etf_tabs[0]:
         df_btc_etf = get_performance_summary(_btc_etfs)
@@ -1444,6 +1454,12 @@ with tabs[5]:
         if not df_eth_etf.empty:
             show_e = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_eth_etf.columns]
             st.dataframe(style_df(df_eth_etf[show_e]), use_container_width=True, hide_index=True)
+
+    with cr_etf_tabs[2]:
+        df_other_etf = get_performance_summary(_other_crypto_etfs)
+        if not df_other_etf.empty:
+            show_e = [c for c in ["Name","Ticker","Price","1D %","Flow 1D","5D %","Flow 5D","1M %","YTD %"] if c in df_other_etf.columns]
+            st.dataframe(style_df(df_other_etf[show_e]), use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
