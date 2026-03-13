@@ -1044,6 +1044,39 @@ with tabs[1]:
                                   "YTD %","Rel. Vol.","Flow 5D","Flow 1M"] if c in df_etf.columns]
         st.dataframe(style_df(df_etf[show_cols]), use_container_width=True, hide_index=True)
 
+        # ── Net Total by Category ──────────────────────────────────────────
+        section("Net Flow by Category")
+        net_rows = []
+        for cat_name, cat_etfs in ETF_UNIVERSE.items():
+            cat_tickers = list(cat_etfs.keys())
+            f5d_vals, f1m_vals = [], []
+            for tk in cat_tickers:
+                fd_c = compute_etf_flow_proxy(tk)
+                if fd_c:
+                    if fd_c.get("flow_proxy_5d") is not None:
+                        f5d_vals.append(fd_c["flow_proxy_5d"])
+                    if fd_c.get("flow_proxy_1mo") is not None:
+                        f1m_vals.append(fd_c["flow_proxy_1mo"])
+            net_rows.append({
+                "Category":  cat_name,
+                "Net Flow 5D": sum(f5d_vals) if f5d_vals else None,
+                "Net Flow 1M": sum(f1m_vals) if f1m_vals else None,
+            })
+        df_net = pd.DataFrame(net_rows)
+        def _style_net(df):
+            out = pd.DataFrame("", index=df.index, columns=df.columns)
+            for col in ["Net Flow 5D", "Net Flow 1M"]:
+                if col in df.columns:
+                    out[col] = df[col].apply(
+                        lambda v: "color:#16a34a;font-weight:600" if v and v > 0
+                        else ("color:#dc2626;font-weight:600" if v and v < 0 else ""))
+            return out
+        fmt_net = {"Net Flow 5D": fmt_flow, "Net Flow 1M": fmt_flow}
+        st.dataframe(
+            df_net.style.apply(_style_net, axis=None).format(fmt_net, na_rep="—"),
+            use_container_width=True, hide_index=True,
+        )
+
         # ── Deep Dive ─────────────────────────────────────────────────────
         section("ETF Deep Dive")
         sel = st.selectbox("Select ETF", tickers, key="etf_deep", label_visibility="collapsed")
