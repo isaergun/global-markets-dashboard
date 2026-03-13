@@ -354,9 +354,9 @@ _TV_SYM = {
     "SPY": "AMEX:SPY",   "QQQ": "NASDAQ:QQQ",  "IWM": "AMEX:IWM",
     "GLD": "AMEX:GLD",   "SLV": "AMEX:SLV",    "USO": "AMEX:USO",
     "IBIT": "NASDAQ:IBIT","FBTC": "NASDAQ:FBTC","ETHA": "NASDAQ:ETHA",
-    # BDCs (NASDAQ-listed use NASDAQ:, NYSE-listed use NYSE:)
-    "ARCC": "NASDAQ:ARCC", "OBDC": "NASDAQ:OBDC", "BXSL": "NYSE:BXSL",
-    "FSK":  "NYSE:FSK",    "MAIN": "NASDAQ:MAIN",  "HTGC": "NASDAQ:HTGC",
+    # BDCs
+    "ARCC": "NASDAQ:ARCC", "OBDC": "NYSE:OBDC",  "BXSL": "NYSE:BXSL",
+    "FSK":  "NYSE:FSK",    "MAIN": "NYSE:MAIN",   "HTGC": "NYSE:HTGC",
     "GBDC": "NASDAQ:GBDC",
     # Senior Loans & CLOs (NYSE Arca → AMEX in TradingView)
     "BKLN": "AMEX:BKLN", "SRLN": "AMEX:SRLN",
