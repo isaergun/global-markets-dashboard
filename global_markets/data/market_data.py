@@ -156,7 +156,7 @@ def get_etf_info(ticker: str) -> dict:
     except Exception:
         pass
 
-    # Fallback: funds_data.fund_operations (different Yahoo endpoint, more resilient)
+    # Fallback 2: funds_data.fund_operations (different Yahoo endpoint, more resilient)
     if total_assets is None or expense_ratio is None:
         try:
             t = yf.Ticker(ticker)
@@ -165,7 +165,6 @@ def get_etf_info(ticker: str) -> dict:
                 if total_assets is None:
                     raw = fo.loc["Total Net Assets", ticker]
                     if raw and not np.isnan(float(raw)):
-                        # fund_operations returns value in millions of USD
                         total_assets = float(raw) * 1_000_000
                 if expense_ratio is None:
                     raw_er = fo.loc["Annual Report Expense Ratio", ticker]
@@ -175,6 +174,17 @@ def get_etf_info(ticker: str) -> dict:
                 fo2 = t.funds_data.fund_overview
                 fund_family = fo2.get("family", "")
                 category = fo2.get("categoryName", "")
+        except Exception:
+            pass
+
+    # Fallback 3: shares_outstanding × last_price via fast_info (lightweight, rarely blocked)
+    if total_assets is None:
+        try:
+            fi = yf.Ticker(ticker).fast_info
+            shares = getattr(fi, "shares", None)
+            price  = getattr(fi, "last_price", None) or getattr(fi, "previous_close", None)
+            if shares and price:
+                total_assets = float(shares) * float(price)
         except Exception:
             pass
 
