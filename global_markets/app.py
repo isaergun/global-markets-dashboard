@@ -29,7 +29,7 @@ from config import (
 from data.market_data import (
     get_quote, get_bulk_quotes, get_history, get_multi_history,
     compute_etf_flow_proxy, get_yield_curve, get_us_yield_history, get_fred_series,
-    get_japan_yield_curve, get_performance_summary,
+    get_japan_yield_curve, get_japan_yield_history, get_performance_summary,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1221,6 +1221,47 @@ with tabs[2]:
         for col, tenor in zip(jcols, _jp_tenors):
             val = jp_yields.get(tenor)
             with col: stat_card(f"JGB {tenor}", f"{val:.3f}%" if val else "—")
+
+        section("2Y / 10Y Yields & Spread (Inversion Watch)")
+        jp_h2y  = get_japan_yield_history("2Y",  lookback_days=365)
+        jp_h10y = get_japan_yield_history("10Y", lookback_days=365)
+        if jp_h2y is not None and jp_h10y is not None:
+            jp_combined = pd.DataFrame({"2Y": jp_h2y, "10Y": jp_h10y}).dropna()
+            jp_combined["Spread"] = jp_combined["10Y"] - jp_combined["2Y"]
+            fig_jp_sp = make_subplots(
+                rows=3, cols=1, shared_xaxes=True,
+                subplot_titles=["JGB 2Y Yield", "JGB 10Y Yield", "10Y – 2Y Spread"],
+                vertical_spacing=0.07, row_heights=[0.33, 0.33, 0.34],
+            )
+            fig_jp_sp.add_trace(go.Scatter(
+                x=jp_combined.index, y=jp_combined["2Y"], mode="lines",
+                line=dict(color="#f59e0b", width=2),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.3f}%<extra>2Y</extra>",
+            ), row=1, col=1)
+            fig_jp_sp.add_trace(go.Scatter(
+                x=jp_combined.index, y=jp_combined["10Y"], mode="lines",
+                line=dict(color="#e11d48", width=2),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.3f}%<extra>10Y</extra>",
+            ), row=2, col=1)
+            jp_sp_colors = ["#16a34a" if v >= 0 else "#dc2626" for v in jp_combined["Spread"]]
+            fig_jp_sp.add_trace(go.Bar(
+                x=jp_combined.index, y=jp_combined["Spread"],
+                marker=dict(color=jp_sp_colors, opacity=0.8, line=dict(width=0)),
+                hovertemplate="%{x|%Y-%m-%d}: %{y:.3f}%<extra>10Y–2Y</extra>",
+            ), row=3, col=1)
+            fig_jp_sp.add_hline(y=0, line_dash="dot", line_color="#2d3142", opacity=0.8, row=3, col=1)
+            for r in [1, 2, 3]:
+                fig_jp_sp.update_xaxes(showgrid=False, color=TICK_COLOR, zeroline=False,
+                                       tickfont=dict(size=9, color=TICK_COLOR), row=r, col=1)
+                fig_jp_sp.update_yaxes(showgrid=True, gridcolor=GRID_COLOR, color=TICK_COLOR,
+                                       tickfont=dict(size=9), zeroline=False,
+                                       ticksuffix="%", row=r, col=1)
+            fig_jp_sp.update_layout(
+                height=520, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                margin=dict(l=4, r=4, t=30, b=4), showlegend=False,
+                hovermode="x unified", font=dict(color=TICK_COLOR, size=10),
+            )
+            st.plotly_chart(fig_jp_sp, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
