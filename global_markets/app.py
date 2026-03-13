@@ -28,7 +28,7 @@ from config import (
 )
 from data.market_data import (
     get_quote, get_bulk_quotes, get_history, get_multi_history,
-    get_etf_info, compute_etf_flow_proxy, get_yield_curve,
+    compute_etf_flow_proxy, get_yield_curve,
     get_japan_yield_curve, get_performance_summary,
 )
 
@@ -490,13 +490,6 @@ def fmt_pct(v):
     sign = "+" if v >= 0 else ""
     return f"{sign}{v:.2f}%"
 
-def fmt_aum(v):
-    if v is None:
-        return "—"
-    if v >= 1e12: return f"${v/1e12:.2f}T"
-    if v >= 1e9:  return f"${v/1e9:.2f}B"
-    if v >= 1e6:  return f"${v/1e6:.2f}M"
-    return f"${v:,.0f}"
 
 def fmt_flow(v):
     if v is None or (isinstance(v, float) and np.isnan(v)):
@@ -689,8 +682,6 @@ def style_df(df: pd.DataFrame, pct_cols=None, flow_cols=None):
         formatters["Price"] = _fmt_price_cell
     if "Volume" in df.columns:
         formatters["Volume"] = fmt_vol
-    if "AUM" in df.columns:
-        formatters["AUM"] = fmt_aum
     if "Rel. Vol." in df.columns:
         formatters["Rel. Vol."] = lambda v: f"{v:.2f}x" if not pd.isna(v) else "—"
 
@@ -959,7 +950,6 @@ with tabs[1]:
     with st.spinner("Loading ETF data…"):
         for tk in tickers:
             fd   = compute_etf_flow_proxy(tk)
-            info = get_etf_info(tk) if fd else {}
             if not fd:
                 continue
             rows.append({
@@ -969,17 +959,14 @@ with tabs[1]:
                 "YTD %": fd.get("perf_ytd"),
                 "Volume": fd.get("volume"), "Rel. Vol.": fd.get("rel_volume"),
                 "Flow 5D": fd.get("flow_proxy_5d"), "Flow 1M": fd.get("flow_proxy_1mo"),
-                "AUM": info.get("total_assets"),
             })
 
     if rows:
         df_etf = pd.DataFrame(rows)
 
         # ── Summary cards ──────────────────────────────────────────────────
-        c1, c2, c3, c4 = st.columns(4)
+        c2, c3, c4 = st.columns(3)
         valid_flow = df_etf["Flow 5D"].dropna()
-        with c1:
-            stat_card("Total AUM", fmt_aum(df_etf["AUM"].sum()))
         with c2:
             if len(valid_flow):
                 tk = df_etf.loc[df_etf["Flow 5D"].idxmax(), "Ticker"]
@@ -1042,7 +1029,7 @@ with tabs[1]:
         # ── Full table ─────────────────────────────────────────────────────
         section("Full ETF Table")
         show_cols = [c for c in ["Ticker","Name","Price","1D %","5D %","1M %",
-                                  "YTD %","Rel. Vol.","Flow 5D","Flow 1M","AUM"] if c in df_etf.columns]
+                                  "YTD %","Rel. Vol.","Flow 5D","Flow 1M"] if c in df_etf.columns]
         st.dataframe(style_df(df_etf[show_cols]), use_container_width=True, hide_index=True)
 
         # ── Deep Dive ─────────────────────────────────────────────────────
@@ -1054,9 +1041,7 @@ with tabs[1]:
             fh.columns = [str(c) for c in fh.columns]
             dc = fh.columns[0]
 
-            info2 = get_etf_info(sel)
-            m1,m2,m3,m4 = st.columns(4)
-            with m1: stat_card("AUM", fmt_aum(info2.get("total_assets")))
+            m2,m3,m4 = st.columns(3)
             with m2: stat_card("Rel. Vol.", f"{fd2.get('rel_volume',0):.2f}×")
             with m3: stat_card("Flow 5D", fmt_flow(fd2.get("flow_proxy_5d")), None)
             with m4: stat_card("Flow 1M", fmt_flow(fd2.get("flow_proxy_1mo")), None)
