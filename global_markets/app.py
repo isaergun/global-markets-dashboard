@@ -357,7 +357,7 @@ _TV_SYM = {
     # BDCs
     "ARCC": "NASDAQ:ARCC", "OBDC": "NYSE:OBDC",  "BXSL": "NYSE:BXSL",
     "FSK":  "NYSE:FSK",    "MAIN": "NYSE:MAIN",   "HTGC": "NYSE:HTGC",
-    "GBDC": "NASDAQ:GBDC",
+    "GBDC": "NASDAQ:GBDC", "APO":  "NYSE:APO",
     # Senior Loans & CLOs (NYSE Arca → AMEX in TradingView)
     "BKLN": "AMEX:BKLN", "SRLN": "AMEX:SRLN",
     "JAAA": "AMEX:JAAA", "CLOI": "AMEX:CLOI",
@@ -1562,6 +1562,7 @@ _BDC_UNIVERSE = {
     "Main Street Capital":        "MAIN",
     "Hercules Capital":           "HTGC",
     "Golub Capital BDC":          "GBDC",
+    "Apollo Global Management":   "APO",
 }
 _LOAN_CLO_UNIVERSE = {
     "Invesco Senior Loan ETF":     "BKLN",
