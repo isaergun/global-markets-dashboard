@@ -1661,6 +1661,31 @@ with tabs[7]:
             )
             st.plotly_chart(fig_cr, use_container_width=True)
 
+        st.markdown("""
+<div style="background:#1e2130;border-radius:10px;padding:16px 20px;margin-top:4px;font-size:12px;color:#8891a5;line-height:1.8">
+
+<b style="color:#c9d1e0;font-size:13px">📖 Bu grafikleri nasıl okumalısınız?</b><br><br>
+
+<b style="color:#c9d1e0">HY OAS (High Yield Option-Adjusted Spread)</b><br>
+Yüksek getirili (sub-investment grade, yani BB ve altı) tahvillerin ABD Hazine bonolarına göre fazladan ödediği faiz farkı.
+Private credit fonları çoğunlukla bu segmentin biraz üzerinde fiyatlanır.
+<b style="color:#dc2626">Spread yükseliyorsa</b> → piyasa riski arttı, borrower'lar daha pahalı borçlanıyor, default korkusu büyüyor.
+<b style="color:#16a34a">Spread düşüyorsa</b> → iştah açık, kredi koşulları gevşiyor, sermaye private credit'e akıyor.<br><br>
+
+<b style="color:#c9d1e0">BBB OAS (Investment Grade Alt Bandı)</b><br>
+Yatırım yapılabilir seviyenin en alt basamağı. Private credit direct lending'in sıklıkla rekabet ettiği segment.
+BBB spreadi genişliyorsa investment grade ile high yield arasındaki fark kapanıyor demektir; bu durum private credit için fırsatçı fiyatlama ortamı yaratır.
+Tarihsel eşik: <b style="color:#f59e0b">150 bps üzeri</b> stres sinyali, <b style="color:#16a34a">100 bps altı</b> sıkışık/rekabetçi ortam.<br><br>
+
+<b style="color:#c9d1e0">SOFR (Secured Overnight Financing Rate)</b><br>
+Private credit kredilerinin büyük çoğunluğu <b>SOFR + spread</b> yapısında (floating rate) kurulur.
+SOFR yükseldikçe mevcut portföydeki faiz gelirleri otomatik artar → BDC'ler ve private credit fonları için NII (net faiz geliri) yükselir.
+SOFR düşmeye başlarsa portföy getirileri de sıkışır; yeni anlaşmalardaki spread baskısıyla birleşince NII marjı daralabilir.
+<b>Şu an:</b> SOFR ~%4+ seviyesi tarihsel olarak private credit için elverişli getiri ortamıdır.
+
+</div>
+""", unsafe_allow_html=True)
+
     # ── Senior Loans & CLOs ───────────────────────────────────────────────────
     with pc_tabs[2]:
         section("Senior Loans & CLOs")
