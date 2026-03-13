@@ -1121,12 +1121,9 @@ with tabs[2]:
             layout_yc["yaxis"]["ticksuffix"] = "%"
             layout_yc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
             layout_yc["yaxis"]["showgrid"] = True
-            layout_yc["yaxis"]["gridcolor"] = GRID_COLOR
-            layout_yc["yaxis"]["gridwidth"] = 1
+            layout_yc["yaxis"]["gridcolor"] = "rgba(180,185,210,0.18)"
             layout_yc["xaxis"]["showgrid"] = True
-            layout_yc["xaxis"]["gridcolor"] = GRID_COLOR
-            layout_yc["xaxis"]["gridwidth"] = 1
-            layout_yc["plot_bgcolor"] = "#1e2130"
+            layout_yc["xaxis"]["gridcolor"] = "rgba(180,185,210,0.18)"
             fig_yc.update_layout(**layout_yc)
             st.plotly_chart(fig_yc, use_container_width=True)
 
@@ -1213,12 +1210,9 @@ with tabs[2]:
             layout_jyc["yaxis"]["ticksuffix"] = "%"
             layout_jyc["yaxis"]["title"] = dict(text="Yield (%)", font=dict(size=10, color=TICK_COLOR))
             layout_jyc["yaxis"]["showgrid"] = True
-            layout_jyc["yaxis"]["gridcolor"] = GRID_COLOR
-            layout_jyc["yaxis"]["gridwidth"] = 1
+            layout_jyc["yaxis"]["gridcolor"] = "rgba(180,185,210,0.18)"
             layout_jyc["xaxis"]["showgrid"] = True
-            layout_jyc["xaxis"]["gridcolor"] = GRID_COLOR
-            layout_jyc["xaxis"]["gridwidth"] = 1
-            layout_jyc["plot_bgcolor"] = "#1e2130"
+            layout_jyc["xaxis"]["gridcolor"] = "rgba(180,185,210,0.18)"
             fig_jyc.update_layout(**layout_jyc)
             st.plotly_chart(fig_jyc, use_container_width=True, key="jp_yc_chart")
 
