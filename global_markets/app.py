@@ -368,6 +368,10 @@ _TV_SYM = {
     # Other Crypto ETFs (NYSE Arca → AMEX)
     "BITQ": "AMEX:BITQ", "BLOK": "AMEX:BLOK", "FDIG": "AMEX:FDIG",
     "DAPP": "AMEX:DAPP", "BKCH": "AMEX:BKCH",
+    # Silver ETFs (NYSE Arca → AMEX)
+    "SIVR": "AMEX:SIVR", "PSLV": "AMEX:PSLV",
+    # Oil ETFs (NYSE Arca → AMEX)
+    "BNO": "AMEX:BNO", "DBO": "AMEX:DBO",
 }
 
 def tv_chart(yf_symbol: str, height: int = 380, interval: str = "D",
@@ -1267,9 +1271,11 @@ with tabs[3]:
 
     _COMM_ETF_MAP = {
         "Energy":          {"US Oil Fund": "USO", "US Natural Gas Fund": "UNG",
+                            "Brent Crude Oil": "BNO", "DB Oil Fund": "DBO",
                             "Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
         "Precious Metals": {"SPDR Gold Shares": "GLD", "iShares Gold Trust": "IAU",
                             "SPDR Gold MiniShares": "GLDM", "iShares Silver Trust": "SLV",
+                            "Aberdeen Silver (SIVR)": "SIVR", "Sprott Silver (PSLV)": "PSLV",
                             "Gold Miners ETF": "GDX", "Junior Gold Miners": "GDXJ"},
         "Base Metals":     {"US Copper Index": "CPER", "Invesco Commodity": "PDBC"},
         "Agricultural":    {"Invesco Commodity": "PDBC", "iShares Commodity": "GSG"},
