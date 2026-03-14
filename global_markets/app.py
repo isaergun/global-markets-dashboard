@@ -1589,8 +1589,8 @@ with tabs[0]:
             st.plotly_chart(fig_g, use_container_width=True)
 
         with col_vix:
-            section("VIX — 1 Year History")
-            vix_h = get_history("^VIX","1y")
+            section("VIX — 7 Year History")
+            vix_h = get_history("^VIX","7y")
             if vix_h is not None:
                 vdf = vix_h.reset_index(); vdf.columns=[str(c) for c in vdf.columns]
                 dc = vdf.columns[0]
@@ -1620,7 +1620,7 @@ with tabs[0]:
         if ha is None or hb is None:
             return
         r = (ha["Close"] / hb["Close"]).dropna()
-        df = r.reset_index(); df.columns = ["Date", "Ratio"]
+        df = r.rename("Ratio").to_frame()  # keep DatetimeIndex; line_chart will reset_index()
         col_line = color if df["Ratio"].iloc[-1] >= df["Ratio"].iloc[-2] else "#dc2626"
         fig = line_chart(df, "Ratio", note, col_line, 220)
         if fig:
@@ -1667,7 +1667,8 @@ with tabs[0]:
             height=320, margin=dict(l=0,r=0,t=10,b=0),
             paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)", showlegend=False,
             yaxis=dict(title="Risk-On Score", gridcolor="rgba(180,185,210,0.18)"),
-            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(type="date", tickformat="%b %Y", gridcolor="rgba(180,185,210,0.18)",
+                       tickfont=dict(size=9, color=TICK_COLOR)),
         )
         st.plotly_chart(fig_comp, use_container_width=True)
 
@@ -1688,7 +1689,8 @@ with tabs[0]:
             paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
             legend=dict(orientation="h", y=-0.15),
             yaxis=dict(title="Z-Score", gridcolor="rgba(180,185,210,0.18)"),
-            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(type="date", tickformat="%b %Y", gridcolor="rgba(180,185,210,0.18)",
+                       tickfont=dict(size=9, color=TICK_COLOR)),
         )
         st.plotly_chart(fig_z, use_container_width=True)
 
@@ -1713,7 +1715,8 @@ with tabs[0]:
             legend=dict(orientation="h", y=-0.2),
             yaxis=dict(title="Probability", tickformat=".0%",
                        gridcolor="rgba(180,185,210,0.18)"),
-            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(type="date", tickformat="%b %Y", gridcolor="rgba(180,185,210,0.18)",
+                       tickfont=dict(size=9, color=TICK_COLOR)),
         )
         st.plotly_chart(fig_prob, use_container_width=True)
 
