@@ -816,9 +816,8 @@ tabs = st.tabs([
     "🛢  Commodities",
     "💱  Currencies",
     "₿   Crypto",
-    "🧠  Sentiment",
+    "🧠  Sentiment & Regime",
     "💰  Private Credit",
-    "📡  Regime",
 ])
 
 
@@ -1615,6 +1614,171 @@ with tabs[6]:
         fig_cmp.update_layout(**layout_cmp)
         st.plotly_chart(fig_cmp, use_container_width=True)
 
+    # ── Cross-Market Regime ───────────────────────────────────────────────────
+    section("Cross-Market Regime Indicator")
+    st.markdown(
+        "<p style='font-size:11px;color:#6b7280;margin:-10px 0 16px'>"
+        "Z-score + momentum composite across 5 macro indicators (weekly bars, 7-year window). "
+        "Regime classification via Gaussian Mixture Model (3 states)."
+        "</p>", unsafe_allow_html=True,
+    )
+
+    with st.spinner("Computing regime signals…"):
+        rd = get_regime_data()
+
+    if not rd:
+        st.warning("Could not load regime data. Check data sources.")
+    else:
+        regime       = rd["regime"]
+        probs        = rd["probabilities"]
+        comp_now     = rd["composite_now"]
+        z_now        = rd["z_scores_now"]
+        mom_now      = rd["mom_scores_now"]
+        history      = rd["history"]
+        signals      = rd["signals"]
+        regime_color = REGIME_COLORS.get(regime, "#6b7280")
+
+        # ── Current regime hero ────────────────────────────────────────────
+        st.markdown(f"""
+        <div style="background:{regime_color}18;border-left:4px solid {regime_color};
+                    border-radius:8px;padding:16px 20px;margin-bottom:20px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;
+                      color:{regime_color};text-transform:uppercase">Current Regime</div>
+          <div style="font-size:32px;font-weight:800;color:{regime_color};
+                      margin:4px 0">{regime}</div>
+          <div style="font-size:12px;color:#6b7280">
+            Composite score: <b>{comp_now:+.2f}</b> &nbsp;|&nbsp;
+            Risk-On: <b>{probs.get('Risk-On',0):.0%}</b> &nbsp;
+            Neutral: <b>{probs.get('Neutral',0):.0%}</b> &nbsp;
+            Risk-Off: <b>{probs.get('Risk-Off',0):.0%}</b>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Per-indicator cards ────────────────────────────────────────────
+        section("Indicator Breakdown")
+        ind_names = list(z_now.keys())
+        cols = st.columns(len(ind_names))
+        for i, name in enumerate(ind_names):
+            z   = z_now.get(name, 0)
+            mom = mom_now.get(name, 0)
+            color = REGIME_COLORS["Risk-On"] if z > 0 else REGIME_COLORS["Risk-Off"]
+            with cols[i]:
+                st.markdown(f"""
+                <div style="background:#f9fafb;border-radius:8px;padding:12px;
+                            border-top:3px solid {color}">
+                  <div style="font-size:10px;font-weight:700;color:#6b7280;
+                              text-transform:uppercase;letter-spacing:.06em">{name}</div>
+                  <div style="font-size:20px;font-weight:800;color:{color};
+                              margin:4px 0">{z:+.2f}<span style="font-size:11px;
+                              font-weight:400;color:#9ca3af"> z</span></div>
+                  <div style="font-size:11px;color:#6b7280">
+                    mom: <b style="color:{'#16a34a' if mom>0 else '#dc2626'}">{mom:+.2f}</b>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # ── Composite score history ────────────────────────────────────────
+        section("Composite Risk-On Score — History")
+        fig_comp = go.Figure()
+
+        regime_map = {"Risk-On": REGIME_COLORS["Risk-On"],
+                      "Neutral": REGIME_COLORS["Neutral"],
+                      "Risk-Off": REGIME_COLORS["Risk-Off"]}
+        prev_regime = None
+        band_start  = None
+        for date, row in history.iterrows():
+            r = row["regime"]
+            if r != prev_regime:
+                if prev_regime is not None:
+                    fig_comp.add_vrect(
+                        x0=band_start, x1=date,
+                        fillcolor=regime_map[prev_regime], opacity=0.08,
+                        layer="below", line_width=0,
+                    )
+                band_start  = date
+                prev_regime = r
+        if prev_regime and band_start:
+            fig_comp.add_vrect(
+                x0=band_start, x1=history.index[-1],
+                fillcolor=regime_map[prev_regime], opacity=0.08,
+                layer="below", line_width=0,
+            )
+
+        fig_comp.add_trace(go.Scatter(
+            x=history.index, y=history["composite"],
+            mode="lines", name="Composite",
+            line=dict(color="#6366f1", width=2),
+            hovertemplate="%{x|%Y-%m-%d}<br>Score: %{y:.2f}<extra></extra>",
+        ))
+        fig_comp.add_hline(y=0, line_dash="dot", line_color="#9ca3af", line_width=1)
+        fig_comp.update_layout(
+            height=320, margin=dict(l=0, r=0, t=10, b=0),
+            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
+            showlegend=False,
+            yaxis=dict(title="Risk-On Score", gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
+        )
+        st.plotly_chart(fig_comp, use_container_width=True)
+
+        # ── Per-indicator z-score history ──────────────────────────────────
+        section("Indicator Z-Scores — History")
+        z_cols = [c for c in signals.columns if c.startswith("z_")]
+        fig_z = go.Figure()
+        colors_line = ["#6366f1","#f59e0b","#16a34a","#dc2626","#0ea5e9"]
+        for j, col in enumerate(z_cols):
+            label = col.replace("z_", "")
+            fig_z.add_trace(go.Scatter(
+                x=signals.index, y=signals[col],
+                mode="lines", name=label,
+                line=dict(color=colors_line[j % len(colors_line)], width=1.5),
+                hovertemplate=f"{label}<br>%{{x|%Y-%m-%d}}<br>Z: %{{y:.2f}}<extra></extra>",
+            ))
+        fig_z.add_hline(y=0, line_dash="dot", line_color="#9ca3af", line_width=1)
+        fig_z.update_layout(
+            height=320, margin=dict(l=0, r=0, t=10, b=0),
+            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", y=-0.15),
+            yaxis=dict(title="Z-Score", gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
+        )
+        st.plotly_chart(fig_z, use_container_width=True)
+
+        # ── Regime probability history ─────────────────────────────────────
+        section("Regime Probability — History")
+        from models.regime import _fit_gmm, _label_regimes
+        X_hist     = signals["composite"].dropna().values.reshape(-1, 1)
+        gmm_hist   = _fit_gmm(signals["composite"].dropna())
+        lmap_hist  = _label_regimes(gmm_hist)
+        probs_hist = gmm_hist.predict_proba(X_hist)
+        idx_hist   = signals["composite"].dropna().index
+
+        fig_prob = go.Figure()
+        prob_bar_colors = {
+            "Risk-On":  REGIME_COLORS["Risk-On"],
+            "Neutral":  REGIME_COLORS["Neutral"],
+            "Risk-Off": REGIME_COLORS["Risk-Off"],
+        }
+        for ci in range(gmm_hist.n_components):
+            lbl = lmap_hist[ci]
+            fig_prob.add_trace(go.Bar(
+                x=idx_hist, y=probs_hist[:, ci],
+                name=lbl,
+                marker_color=prob_bar_colors[lbl],
+                opacity=0.75,
+                hovertemplate=f"{lbl}<br>%{{x|%Y-%m-%d}}<br>%{{y:.0%}}<extra></extra>",
+            ))
+        fig_prob.update_layout(
+            barmode="stack",
+            height=260, margin=dict(l=0, r=0, t=10, b=0),
+            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", y=-0.2),
+            yaxis=dict(title="Probability", tickformat=".0%",
+                       gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
+        )
+        st.plotly_chart(fig_prob, use_container_width=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 8 — PRIVATE CREDIT
@@ -1881,176 +2045,6 @@ Widening CLO AAA spreads are an early signal of stress in the broader leveraged 
             show_al = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
                        if c in df_all_loan.columns]
             st.dataframe(style_df(df_all_loan[show_al]), use_container_width=True, hide_index=True)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 9 — CROSS-MARKET REGIME
-# ══════════════════════════════════════════════════════════════════════════════
-with tabs[8]:
-    section("Cross-Market Regime Indicator")
-    st.markdown(
-        "<p style='font-size:11px;color:#6b7280;margin:-10px 0 16px'>"
-        "Z-score + momentum composite across 5 macro indicators. "
-        "Regime classification via Gaussian Mixture Model (3 states, 252-day rolling window)."
-        "</p>", unsafe_allow_html=True,
-    )
-
-    with st.spinner("Computing regime signals…"):
-        rd = get_regime_data()
-
-    if not rd:
-        st.warning("Could not load regime data. Check data sources.")
-    else:
-        regime       = rd["regime"]
-        probs        = rd["probabilities"]
-        comp_now     = rd["composite_now"]
-        z_now        = rd["z_scores_now"]
-        mom_now      = rd["mom_scores_now"]
-        history      = rd["history"]
-        signals      = rd["signals"]
-        regime_color = REGIME_COLORS.get(regime, "#6b7280")
-
-        # ── Current regime hero ────────────────────────────────────────────
-        st.markdown(f"""
-        <div style="background:{regime_color}18;border-left:4px solid {regime_color};
-                    border-radius:8px;padding:16px 20px;margin-bottom:20px">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;
-                      color:{regime_color};text-transform:uppercase">Current Regime</div>
-          <div style="font-size:32px;font-weight:800;color:{regime_color};
-                      margin:4px 0">{regime}</div>
-          <div style="font-size:12px;color:#6b7280">
-            Composite score: <b>{comp_now:+.2f}</b> &nbsp;|&nbsp;
-            Risk-On: <b>{probs.get('Risk-On',0):.0%}</b> &nbsp;
-            Neutral: <b>{probs.get('Neutral',0):.0%}</b> &nbsp;
-            Risk-Off: <b>{probs.get('Risk-Off',0):.0%}</b>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── Per-indicator cards ────────────────────────────────────────────
-        section("Indicator Breakdown")
-        ind_names = list(z_now.keys())
-        cols = st.columns(len(ind_names))
-        for i, name in enumerate(ind_names):
-            z   = z_now.get(name, 0)
-            mom = mom_now.get(name, 0)
-            color = REGIME_COLORS["Risk-On"] if z > 0 else REGIME_COLORS["Risk-Off"]
-            with cols[i]:
-                st.markdown(f"""
-                <div style="background:#f9fafb;border-radius:8px;padding:12px;
-                            border-top:3px solid {color}">
-                  <div style="font-size:10px;font-weight:700;color:#6b7280;
-                              text-transform:uppercase;letter-spacing:.06em">{name}</div>
-                  <div style="font-size:20px;font-weight:800;color:{color};
-                              margin:4px 0">{z:+.2f}<span style="font-size:11px;
-                              font-weight:400;color:#9ca3af"> z</span></div>
-                  <div style="font-size:11px;color:#6b7280">
-                    mom: <b style="color:{'#16a34a' if mom>0 else '#dc2626'}">{mom:+.2f}</b>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # ── Composite score history ────────────────────────────────────────
-        section("Composite Risk-On Score — History")
-        fig_comp = go.Figure()
-
-        # Colour background bands by regime
-        regime_map = {"Risk-On": REGIME_COLORS["Risk-On"],
-                      "Neutral": REGIME_COLORS["Neutral"],
-                      "Risk-Off": REGIME_COLORS["Risk-Off"]}
-        prev_regime = None
-        band_start  = None
-        for date, row in history.iterrows():
-            r = row["regime"]
-            if r != prev_regime:
-                if prev_regime is not None:
-                    fig_comp.add_vrect(
-                        x0=band_start, x1=date,
-                        fillcolor=regime_map[prev_regime], opacity=0.08,
-                        layer="below", line_width=0,
-                    )
-                band_start  = date
-                prev_regime = r
-        if prev_regime and band_start:
-            fig_comp.add_vrect(
-                x0=band_start, x1=history.index[-1],
-                fillcolor=regime_map[prev_regime], opacity=0.08,
-                layer="below", line_width=0,
-            )
-
-        fig_comp.add_trace(go.Scatter(
-            x=history.index, y=history["composite"],
-            mode="lines", name="Composite",
-            line=dict(color="#6366f1", width=2),
-            hovertemplate="%{x|%Y-%m-%d}<br>Score: %{y:.2f}<extra></extra>",
-        ))
-        fig_comp.add_hline(y=0, line_dash="dot", line_color="#9ca3af", line_width=1)
-        fig_comp.update_layout(
-            height=320, margin=dict(l=0, r=0, t=10, b=0),
-            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
-            showlegend=False,
-            yaxis=dict(title="Risk-On Score", gridcolor="rgba(180,185,210,0.18)"),
-            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
-        )
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-        # ── Per-indicator z-score history ──────────────────────────────────
-        section("Indicator Z-Scores — History")
-        z_cols = [c for c in signals.columns if c.startswith("z_")]
-        fig_z = go.Figure()
-        colors_line = ["#6366f1","#f59e0b","#16a34a","#dc2626","#0ea5e9"]
-        for j, col in enumerate(z_cols):
-            label = col.replace("z_", "")
-            fig_z.add_trace(go.Scatter(
-                x=signals.index, y=signals[col],
-                mode="lines", name=label,
-                line=dict(color=colors_line[j % len(colors_line)], width=1.5),
-                hovertemplate=f"{label}<br>%{{x|%Y-%m-%d}}<br>Z: %{{y:.2f}}<extra></extra>",
-            ))
-        fig_z.add_hline(y=0, line_dash="dot", line_color="#9ca3af", line_width=1)
-        fig_z.update_layout(
-            height=320, margin=dict(l=0, r=0, t=10, b=0),
-            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
-            legend=dict(orientation="h", y=-0.15),
-            yaxis=dict(title="Z-Score", gridcolor="rgba(180,185,210,0.18)"),
-            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
-        )
-        st.plotly_chart(fig_z, use_container_width=True)
-
-        # ── Regime probability history ─────────────────────────────────────
-        section("Regime Probability — History")
-        X_hist = signals["composite"].dropna().values.reshape(-1, 1)
-        from models.regime import _fit_gmm, _label_regimes
-        gmm_hist  = _fit_gmm(signals["composite"].dropna())
-        lmap_hist = _label_regimes(gmm_hist)
-        probs_hist = gmm_hist.predict_proba(X_hist)
-        idx_hist   = signals["composite"].dropna().index
-
-        fig_prob = go.Figure()
-        prob_bar_colors = {
-            "Risk-On":  REGIME_COLORS["Risk-On"],
-            "Neutral":  REGIME_COLORS["Neutral"],
-            "Risk-Off": REGIME_COLORS["Risk-Off"],
-        }
-        for ci in range(gmm_hist.n_components):
-            lbl = lmap_hist[ci]
-            fig_prob.add_trace(go.Bar(
-                x=idx_hist, y=probs_hist[:, ci],
-                name=lbl,
-                marker_color=prob_bar_colors[lbl],
-                opacity=0.75,
-                hovertemplate=f"{lbl}<br>%{{x|%Y-%m-%d}}<br>%{{y:.0%}}<extra></extra>",
-            ))
-        fig_prob.update_layout(
-            barmode="stack",
-            height=260, margin=dict(l=0, r=0, t=10, b=0),
-            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
-            legend=dict(orientation="h", y=-0.2),
-            yaxis=dict(title="Probability", tickformat=".0%",
-                       gridcolor="rgba(180,185,210,0.18)"),
-            xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
-        )
-        st.plotly_chart(fig_prob, use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
