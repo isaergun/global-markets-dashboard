@@ -2088,7 +2088,7 @@ with tabs[8]:
           "save_image": false, "withdateranges": true, "details": false,
           "hide_volume": true,
           "studies": [
-            {{"id": "PUB;dG1TYS9t@tv-scripting-pin-v1"}},
+            {{"id": "PUB;dG1TYS9t"}},
             {{"id": "ROC@tv-basicstudies", "inputs": {{"length": 9}}}}
           ]
         }});
