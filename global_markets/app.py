@@ -2065,8 +2065,14 @@ with tabs[8]:
 
     st.markdown(f"#### {ft_cfg['label']}")
 
+    _FT_INTERVALS = [
+        {"label": "1H",    "tv_interval": "60"},
+        {"label": "10min", "tv_interval": "10"},
+        {"label": "1min",  "tv_interval": "1"},
+    ]
+
     def _ft_tv_chart(tv_symbol: str, tv_interval: str, tf_label: str, height: int = 620) -> None:
-        """Embed a TradingView widget with MACD histogram + RoC(9); no volume, no MACD lines."""
+        """TradingView chart with custom published MACD histogram + ROC(9) studies."""
         cid = f"ft_{abs(hash(tv_symbol + tv_interval))}"
         html = f"""
         <div style="font-size:11px;color:#6b7494;margin-bottom:4px;font-weight:600">{tf_label}</div>
@@ -2075,43 +2081,25 @@ with tabs[8]:
         <script>
         new TradingView.widget({{
           "container_id": "{cid}",
-          "width":  "100%",
-          "height": {height},
-          "symbol": "{tv_symbol}",
-          "interval": "{tv_interval}",
-          "timezone": "Etc/UTC",
-          "theme": "light",
-          "style": "1",
-          "locale": "en",
-          "hide_side_toolbar": true,
-          "allow_symbol_change": false,
-          "save_image": false,
-          "hide_top_toolbar": false,
-          "withdateranges": true,
-          "details": false,
+          "width": "100%", "height": {height},
+          "symbol": "{tv_symbol}", "interval": "{tv_interval}",
+          "timezone": "Etc/UTC", "theme": "light", "style": "1", "locale": "en",
+          "hide_side_toolbar": true, "allow_symbol_change": false,
+          "save_image": false, "withdateranges": true, "details": false,
           "hide_volume": true,
           "studies": [
-            {{"id": "MACD@tv-basicstudies"}},
+            {{"id": "PUB;dG1TYS9t@tv-scripting-pin-v1"}},
             {{"id": "ROC@tv-basicstudies", "inputs": {{"length": 9}}}}
-          ],
-          "studies_overrides": {{
-            "macd.macd line.color": "rgba(0,0,0,0)",
-            "macd.macd line.linewidth": 0,
-            "macd.signal line.color": "rgba(0,0,0,0)",
-            "macd.signal line.linewidth": 0
-          }}
+          ]
         }});
         </script>
         """
-        stc.html(html, height=height + 24, scrolling=False)
+        stc.html(html, height=height + 20, scrolling=False)
 
     col_1h, col_10m, col_1m = st.columns(3)
-    with col_1h:
-        _ft_tv_chart(tv_sym, "60", "1H")
-    with col_10m:
-        _ft_tv_chart(tv_sym, "10", "10min")
-    with col_1m:
-        _ft_tv_chart(tv_sym, "1",  "1min")
+    for col, tf in zip([col_1h, col_10m, col_1m], _FT_INTERVALS):
+        with col:
+            _ft_tv_chart(tv_sym, tf["tv_interval"], tf["label"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
