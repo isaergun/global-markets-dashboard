@@ -1589,9 +1589,10 @@ with tabs[0]:
             st.plotly_chart(fig_g, use_container_width=True)
 
         with col_vix:
-            section("VIX — 7 Year History")
+            section("VIX — 2020 to Present")
             vix_h = get_history("^VIX","7y")
             if vix_h is not None:
+                vix_h = vix_h.loc[vix_h.index >= _DISP_START]
                 vdf = vix_h.reset_index(); vdf.columns=[str(c) for c in vdf.columns]
                 dc = vdf.columns[0]
                 fig_vh = go.Figure()
@@ -1614,12 +1615,17 @@ with tabs[0]:
                 st.plotly_chart(fig_vh, use_container_width=True)
 
     # ── Ratio charts (2 per row) ──────────────────────────────────────────────
-    def _ratio_chart(sym_a, sym_b, title, color, note, period="1y"):
+    _DISP_START = pd.Timestamp("2020-01-01")
+
+    def _ratio_chart(sym_a, sym_b, title, color, note, period="6y"):
         ha = get_history(sym_a, period)
         hb = get_history(sym_b, period)
         if ha is None or hb is None:
             return
         r = (ha["Close"] / hb["Close"]).dropna()
+        r = r.loc[r.index >= _DISP_START]
+        if r.empty:
+            return
         df = r.rename("Ratio").to_frame()  # keep DatetimeIndex; line_chart will reset_index()
         col_line = color if df["Ratio"].iloc[-1] >= df["Ratio"].iloc[-2] else "#dc2626"
         fig = line_chart(df, "Ratio", note, col_line, 220)
@@ -1637,6 +1643,10 @@ with tabs[0]:
 
     # ── Regime history charts ─────────────────────────────────────────────────
     if rd:
+        # Filter to display window (2020-01-01 onward); computation used full 7y
+        hist_disp = history.loc[history.index >= _DISP_START]
+        sigs_disp = signals.loc[signals.index >= _DISP_START]
+
         section("Composite Risk-On Score — History")
         fig_comp = go.Figure()
         regime_map = {"Risk-On": REGIME_COLORS["Risk-On"],
@@ -1644,7 +1654,7 @@ with tabs[0]:
                       "Risk-Off": REGIME_COLORS["Risk-Off"]}
         prev_regime = None
         band_start  = None
-        for date, row in history.iterrows():
+        for date, row in hist_disp.iterrows():
             r = row["regime"]
             if r != prev_regime:
                 if prev_regime is not None:
@@ -1654,11 +1664,11 @@ with tabs[0]:
                 band_start  = date
                 prev_regime = r
         if prev_regime and band_start:
-            fig_comp.add_vrect(x0=band_start, x1=history.index[-1],
+            fig_comp.add_vrect(x0=band_start, x1=hist_disp.index[-1],
                                fillcolor=regime_map[prev_regime],
                                opacity=0.08, layer="below", line_width=0)
         fig_comp.add_trace(go.Scatter(
-            x=history.index, y=history["composite"], mode="lines",
+            x=hist_disp.index, y=hist_disp["composite"], mode="lines",
             line=dict(color="#6366f1", width=2),
             hovertemplate="%{x|%Y-%m-%d}<br>Score: %{y:.2f}<extra></extra>",
         ))
@@ -1673,13 +1683,13 @@ with tabs[0]:
         st.plotly_chart(fig_comp, use_container_width=True)
 
         section("Indicator Z-Scores — History")
-        z_cols = [c for c in signals.columns if c.startswith("z_")]
+        z_cols = [c for c in sigs_disp.columns if c.startswith("z_")]
         fig_z = go.Figure()
         colors_line = ["#6366f1","#f59e0b","#16a34a","#dc2626","#0ea5e9"]
         for j, col in enumerate(z_cols):
             label = col.replace("z_", "")
             fig_z.add_trace(go.Scatter(
-                x=signals.index, y=signals[col], mode="lines", name=label,
+                x=sigs_disp.index, y=sigs_disp[col], mode="lines", name=label,
                 line=dict(color=colors_line[j % len(colors_line)], width=1.5),
                 hovertemplate=f"{label}<br>%{{x|%Y-%m-%d}}<br>Z: %{{y:.2f}}<extra></extra>",
             ))
@@ -1696,11 +1706,13 @@ with tabs[0]:
 
         section("Regime Probability — History")
         from models.regime import _fit_gmm, _label_regimes
+        # GMM fitted on full history; predict only display window
         X_hist     = signals["composite"].dropna().values.reshape(-1, 1)
         gmm_hist   = _fit_gmm(signals["composite"].dropna())
         lmap_hist  = _label_regimes(gmm_hist)
-        probs_hist = gmm_hist.predict_proba(X_hist)
-        idx_hist   = signals["composite"].dropna().index
+        comp_disp  = sigs_disp["composite"].dropna()
+        probs_hist = gmm_hist.predict_proba(comp_disp.values.reshape(-1, 1))
+        idx_hist   = comp_disp.index
         fig_prob = go.Figure()
         for ci in range(gmm_hist.n_components):
             lbl = lmap_hist[ci]
