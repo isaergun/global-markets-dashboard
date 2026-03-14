@@ -2044,13 +2044,14 @@ with tabs[8]:
         "Gold":    {"ticker": "GC=F",     "label": "XAU/USD"},
         "EUR/USD": {"ticker": "EURUSD=X", "label": "EUR/USD"},
         "GBP/USD": {"ticker": "GBPUSD=X", "label": "GBP/USD"},
-        "USD/JPY": {"ticker": "JPY=X",    "label": "USD/JPY"},
+        "USD/JPY": {"ticker": "USDJPY=X", "label": "USD/JPY"},
     }
 
+    # TradingView interval codes
     _FT_TIMEFRAMES = [
-        {"label": "1H",    "interval": "1h",  "period": "5d"},
-        {"label": "10min", "interval": "10m", "period": "2d"},
-        {"label": "1min",  "interval": "1m",  "period": "1d"},
+        {"label": "1H",    "tv_interval": "60"},
+        {"label": "10min", "tv_interval": "10"},
+        {"label": "1min",  "tv_interval": "1"},
     ]
 
     ft_asset = st.selectbox(
@@ -2059,103 +2060,51 @@ with tabs[8]:
         key="ft_asset",
         label_visibility="collapsed",
     )
-    ft_cfg = _FT_ASSETS[ft_asset]
+    ft_cfg  = _FT_ASSETS[ft_asset]
+    tv_sym  = _TV_SYM.get(ft_cfg["ticker"], ft_cfg["ticker"])
+
     st.markdown(f"#### {ft_cfg['label']}")
 
-    def _ft_chart(ticker: str, interval: str, period: str, tf_label: str) -> None:
-        """Render a candlestick + MACD + RoC(7) subplot figure."""
-        hist = get_history(ticker, period=period, interval=interval)
-        if hist is None or hist.empty:
-            st.warning(f"No data for {ticker} @ {tf_label}")
-            return
-
-        close  = hist["Close"]
-        high   = hist["High"]
-        low    = hist["Low"]
-        open_  = hist["Open"]
-        dates  = hist.index
-
-        # ── MACD (12/26/9) ─────────────────────────────────────────────────
-        ema12   = close.ewm(span=12, adjust=False).mean()
-        ema26   = close.ewm(span=26, adjust=False).mean()
-        macd    = ema12 - ema26
-        signal  = macd.ewm(span=9, adjust=False).mean()
-        hist_m  = macd - signal
-
-        # ── RoC(7) ─────────────────────────────────────────────────────────
-        roc7 = close.pct_change(7) * 100
-
-        fig = make_subplots(
-            rows=3, cols=1,
-            shared_xaxes=True,
-            row_heights=[0.60, 0.22, 0.18],
-            vertical_spacing=0.03,
-        )
-
-        # Row 1: Candlestick
-        fig.add_trace(go.Candlestick(
-            x=dates, open=open_, high=high, low=low, close=close,
-            increasing_line_color="#16a34a", decreasing_line_color="#dc2626",
-            increasing_fillcolor="#16a34a", decreasing_fillcolor="#dc2626",
-            line_width=1,
-            showlegend=False,
-            hoverinfo="x+y",
-        ), row=1, col=1)
-
-        # Row 2: MACD
-        bar_colors = ["#16a34a" if v >= 0 else "#dc2626" for v in hist_m]
-        fig.add_trace(go.Bar(
-            x=dates, y=hist_m, name="Histogram",
-            marker_color=bar_colors, opacity=0.6, showlegend=False,
-        ), row=2, col=1)
-        fig.add_trace(go.Scatter(
-            x=dates, y=macd, name="MACD",
-            line=dict(color="#6366f1", width=1.5), showlegend=False,
-        ), row=2, col=1)
-        fig.add_trace(go.Scatter(
-            x=dates, y=signal, name="Signal",
-            line=dict(color="#f59e0b", width=1.5, dash="dot"), showlegend=False,
-        ), row=2, col=1)
-
-        # Row 3: RoC(7)
-        roc_colors = ["#16a34a" if v >= 0 else "#dc2626" for v in roc7.fillna(0)]
-        fig.add_trace(go.Bar(
-            x=dates, y=roc7, name="RoC(7)",
-            marker_color=roc_colors, opacity=0.7, showlegend=False,
-        ), row=3, col=1)
-        fig.add_hline(y=0, line_dash="dot", line_color="#9ca3af", line_width=1, row=3, col=1)
-
-        # Layout
-        axis_style = dict(
-            showgrid=True, gridcolor="rgba(180,185,210,0.18)",
-            color=TICK_COLOR, tickfont=dict(size=8, color=TICK_COLOR),
-            linecolor=AXIS_COLOR, zeroline=False,
-        )
-        fig.update_layout(
-            height=520,
-            margin=dict(l=0, r=0, t=24, b=0),
-            paper_bgcolor=CHART_BG,
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Inter", color=TICK_COLOR, size=9),
-            title=dict(text=tf_label, font=dict(size=11, color="#6b7494"), x=0),
-            xaxis_rangeslider_visible=False,
-            xaxis=dict(**axis_style, type="date"),
-            xaxis2=dict(**axis_style, type="date"),
-            xaxis3=dict(**axis_style, type="date", tickformat="%H:%M\n%d %b"),
-            yaxis=dict(**axis_style),
-            yaxis2=dict(**axis_style, title="MACD"),
-            yaxis3=dict(**axis_style, title="RoC %", ticksuffix="%"),
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+    def _ft_tv_chart(tv_symbol: str, tv_interval: str, tf_label: str, height: int = 520) -> None:
+        """Embed a TradingView widget with MACD + RoC(7) studies."""
+        cid = f"ft_{abs(hash(tv_symbol + tv_interval))}"
+        html = f"""
+        <div style="font-size:11px;color:#6b7494;margin-bottom:4px;font-weight:600">{tf_label}</div>
+        <div id="{cid}" style="height:{height}px;border-radius:10px;overflow:hidden;"></div>
+        <script src="https://s3.tradingview.com/tv.js"></script>
+        <script>
+        new TradingView.widget({{
+          "container_id": "{cid}",
+          "width":  "100%",
+          "height": {height},
+          "symbol": "{tv_symbol}",
+          "interval": "{tv_interval}",
+          "timezone": "Etc/UTC",
+          "theme": "light",
+          "style": "1",
+          "locale": "en",
+          "hide_side_toolbar": true,
+          "allow_symbol_change": false,
+          "save_image": false,
+          "hide_top_toolbar": false,
+          "withdateranges": true,
+          "details": false,
+          "studies": [
+            "MACD@tv-basicstudies",
+            "ROC@tv-basicstudies"
+          ]
+        }});
+        </script>
+        """
+        stc.html(html, height=height + 24, scrolling=False)
 
     col_1h, col_10m, col_1m = st.columns(3)
     with col_1h:
-        _ft_chart(ft_cfg["ticker"], "1h",  "5d", "1H")
+        _ft_tv_chart(tv_sym, "60", "1H")
     with col_10m:
-        _ft_chart(ft_cfg["ticker"], "10m", "2d", "10min")
+        _ft_tv_chart(tv_sym, "10", "10min")
     with col_1m:
-        _ft_chart(ft_cfg["ticker"], "1m",  "1d", "1min")
+        _ft_tv_chart(tv_sym, "1",  "1min")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
