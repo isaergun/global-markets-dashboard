@@ -1539,6 +1539,8 @@ with tabs[0]:
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
+    _DISP_START = pd.Timestamp("2020-01-01")
+
     # ── VIX Gauge + History ───────────────────────────────────────────────────
     SENT = {"VIX": "^VIX", "VVIX": "^VVIX", "S&P 500":"^GSPC",
             "Gold":"GC=F", "WTI":"CL=F", "DXY":"DX-Y.NYB",
@@ -1615,8 +1617,6 @@ with tabs[0]:
                 st.plotly_chart(fig_vh, use_container_width=True)
 
     # ── Ratio charts (2 per row) ──────────────────────────────────────────────
-    _DISP_START = pd.Timestamp("2020-01-01")
-
     def _ratio_chart(sym_a, sym_b, title, color, note, period="6y"):
         ha = get_history(sym_a, period)
         hb = get_history(sym_b, period)
