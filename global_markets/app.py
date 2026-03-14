@@ -31,6 +31,7 @@ from data.market_data import (
     compute_etf_flow_proxy, get_yield_curve, get_us_yield_history, get_fred_series,
     get_japan_yield_curve, get_performance_summary,
 )
+from models.regime import get_regime_data, REGIME_COLORS
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GLOBAL CSS
@@ -809,13 +810,13 @@ st.markdown("""
 # TABS
 # ══════════════════════════════════════════════════════════════════════════════
 tabs = st.tabs([
+    "🧭  Macro Pulse",
     "📈  Equities",
     "💵  ETF Flows",
     "🏦  Fixed Income",
     "🛢  Commodities",
     "💱  Currencies",
     "₿   Crypto",
-    "🧠  Sentiment",
     "💰  Private Credit",
 ])
 
@@ -823,7 +824,7 @@ tabs = st.tabs([
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — EQUITIES
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[0]:
+with tabs[1]:
 
     # ── Heatmap + region nav ────────────────────────────────────────────────
     all_idx = {n: s for r in INDICES.values() for n, s in r.items()}
@@ -951,7 +952,7 @@ with tabs[0]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — ETF FLOWS
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[1]:
+with tabs[2]:
     section("ETF Flow Analysis")
     st.markdown(
         "<p style='font-size:11px;color:#2d3142;margin:-10px 0 12px'>"
@@ -1139,7 +1140,7 @@ with tabs[1]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 — FIXED INCOME
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[2]:
+with tabs[3]:
     fi_tabs = st.tabs(["🇺🇸 United States", "🇯🇵 Japan"])
 
     # ── US Fixed Income ──────────────────────────────────────────────────────
@@ -1268,7 +1269,7 @@ with tabs[2]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 4 — COMMODITIES
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[3]:
+with tabs[4]:
     comm_tabs = st.tabs(list(COMMODITIES.keys()) + ["📊 All"])
 
     _COMM_ETF_MAP = {
@@ -1341,7 +1342,7 @@ with tabs[3]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 5 — CURRENCIES
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[4]:
+with tabs[5]:
     fx_tabs = st.tabs(["Majors", "Emerging Markets", "📊 FX Heatmap"])
 
     for fi, (cat, items) in enumerate(CURRENCIES.items()):
@@ -1404,7 +1405,7 @@ with tabs[4]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 6 — CRYPTO
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[5]:
+with tabs[6]:
     if "crypto_chart_sym" not in st.session_state:
         st.session_state["crypto_chart_sym"] = "BTC-USD"
     sel_sym = st.session_state["crypto_chart_sym"]
@@ -1473,29 +1474,91 @@ with tabs[5]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 7 — SENTIMENT
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[6]:
-    section("Market Sentiment Indicators")
+with tabs[0]:
+    # ── Load regime data first (needed for hero + cards) ──────────────────────
+    with st.spinner("Computing regime signals…"):
+        rd = get_regime_data()
 
+    # ── Current Regime Hero ───────────────────────────────────────────────────
+    if rd:
+        regime       = rd["regime"]
+        probs        = rd["probabilities"]
+        comp_now     = rd["composite_now"]
+        z_now        = rd["z_scores_now"]
+        mom_now      = rd["mom_scores_now"]
+        history      = rd["history"]
+        signals      = rd["signals"]
+        regime_color = REGIME_COLORS.get(regime, "#6b7280")
+
+        st.markdown(
+            "<p style='font-size:11px;color:#6b7280;margin:4px 0 12px'>"
+            "Z-score + momentum composite across 5 macro indicators (weekly bars, 7-year window). "
+            "Regime classification via Gaussian Mixture Model (3 states)."
+            "</p>", unsafe_allow_html=True,
+        )
+        st.markdown(f"""
+        <div style="background:{regime_color}18;border-left:4px solid {regime_color};
+                    border-radius:8px;padding:16px 20px;margin-bottom:20px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;
+                      color:{regime_color};text-transform:uppercase">Current Regime</div>
+          <div style="font-size:32px;font-weight:800;color:{regime_color};
+                      margin:4px 0">{regime}</div>
+          <div style="font-size:12px;color:#6b7280">
+            Composite score: <b>{comp_now:+.2f}</b> &nbsp;|&nbsp;
+            Risk-On: <b>{probs.get('Risk-On',0):.0%}</b> &nbsp;
+            Neutral: <b>{probs.get('Neutral',0):.0%}</b> &nbsp;
+            Risk-Off: <b>{probs.get('Risk-Off',0):.0%}</b>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Indicator Breakdown cards ──────────────────────────────────────
+        section("Indicator Breakdown")
+        ind_names = list(z_now.keys())
+        cols = st.columns(len(ind_names))
+        for i, name in enumerate(ind_names):
+            z   = z_now.get(name, 0)
+            mom = mom_now.get(name, 0)
+            color = REGIME_COLORS["Risk-On"] if z > 0 else REGIME_COLORS["Risk-Off"]
+            with cols[i]:
+                st.markdown(f"""
+                <div style="background:#f9fafb;border-radius:8px;padding:12px;
+                            border-top:3px solid {color}">
+                  <div style="font-size:10px;font-weight:700;color:#6b7280;
+                              text-transform:uppercase;letter-spacing:.06em">{name}</div>
+                  <div style="font-size:20px;font-weight:800;color:{color};
+                              margin:4px 0">{z:+.2f}<span style="font-size:11px;
+                              font-weight:400;color:#9ca3af"> z</span></div>
+                  <div style="font-size:11px;color:#6b7280">
+                    mom: <b style="color:{'#16a34a' if mom>0 else '#dc2626'}">{mom:+.2f}</b>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.warning("Could not load regime data. Check data sources.")
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    _DISP_START = pd.Timestamp("2020-01-01")
+
+    def _since_2020(obj):
+        """Slice a DataFrame/Series to _DISP_START, handling tz-aware indices."""
+        idx = obj.index
+        start = _DISP_START.tz_localize(idx.tz) if idx.tz is not None else _DISP_START
+        return obj.loc[idx >= start]
+
+    # ── VIX Gauge + History ───────────────────────────────────────────────────
     SENT = {"VIX": "^VIX", "VVIX": "^VVIX", "S&P 500":"^GSPC",
             "Gold":"GC=F", "WTI":"CL=F", "DXY":"DX-Y.NYB",
             "TLT (Safe)":"TLT", "HYG (Risk)":"HYG"}
     sq = get_bulk_quotes(list(SENT.values()))
-    sc = st.columns(4)
-    for i, (label, sym) in enumerate(SENT.items()):
-        q = sq.get(sym)
-        with sc[i % 4]:
-            stat_card(label, fmt_price(q["price"]) if q else "—",
-                      q.get("pct_change") if q else None)
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-    # VIX Gauge
     vix_q = sq.get("^VIX")
     if vix_q and vix_q.get("price"):
         vv = vix_q["price"]
-        labels = [(0,15,"Extreme Greed"),(15,20,"Greed"),(20,25,"Neutral"),
-                  (25,35,"Fear"),(35,80,"Extreme Fear")]
-        lvl = next((l for lo,hi,l in labels if lo<=vv<hi), "Extreme Fear")
+        vix_labels = [(0,15,"Extreme Greed"),(15,20,"Greed"),(20,25,"Neutral"),
+                      (25,35,"Fear"),(35,80,"Extreme Fear")]
+        lvl = next((l for lo,hi,l in vix_labels if lo<=vv<hi), "Extreme Fear")
         gauge_col = {"Extreme Greed":"#16a34a","Greed":"#4ade80",
                      "Neutral":"#f59e0b","Fear":"#f97316","Extreme Fear":"#dc2626"}[lvl]
 
@@ -1511,14 +1574,12 @@ with tabs[6]:
                        "decreasing":{"color":"#16a34a"}},
                 number={"font":{"size":36,"color":gauge_col,"family":"JetBrains Mono"},
                         "valueformat":".2f"},
-                title={"text": f"<b>{lvl}</b>",
-                       "font":{"size":13,"color":gauge_col}},
+                title={"text": f"<b>{lvl}</b>", "font":{"size":13,"color":gauge_col}},
                 gauge={
                     "axis":{"range":[0,80],"tickcolor":TICK_COLOR,
                              "tickfont":{"color":TICK_COLOR,"size":9}},
                     "bar":{"color":gauge_col,"thickness":0.25},
-                    "bgcolor":"#f9fafb",
-                    "bordercolor":"#f9fafb",
+                    "bgcolor":"#f9fafb", "bordercolor":"#f9fafb",
                     "steps":[
                         {"range":[0,15],  "color":"rgba(0,212,106,0.1)"},
                         {"range":[15,20], "color":"rgba(52,211,153,0.06)"},
@@ -1536,13 +1597,13 @@ with tabs[6]:
             st.plotly_chart(fig_g, use_container_width=True)
 
         with col_vix:
-            section("VIX — 1 Year History")
-            vix_h = get_history("^VIX","1y")
+            section("VIX — 2020 to Present")
+            vix_h = get_history("^VIX","7y")
             if vix_h is not None:
+                vix_h = _since_2020(vix_h)
                 vdf = vix_h.reset_index(); vdf.columns=[str(c) for c in vdf.columns]
                 dc = vdf.columns[0]
                 fig_vh = go.Figure()
-                # Zones
                 for y0,y1,c in [(0,15,"rgba(0,212,106,0.04)"),
                                   (15,20,"rgba(52,211,153,0.02)"),
                                   (25,35,"rgba(251,146,60,0.04)"),
@@ -1561,57 +1622,149 @@ with tabs[6]:
                 fig_vh.update_layout(**layout_vh)
                 st.plotly_chart(fig_vh, use_container_width=True)
 
-    # Risk-On / Risk-Off
-    section("Risk-On / Risk-Off Ratio (EEM ÷ TLT)")
-    eem_h = get_history("EEM","1y")
-    tlt_h = get_history("TLT","1y")
-    if eem_h is not None and tlt_h is not None:
-        ratio = (eem_h["Close"] / tlt_h["Close"]).dropna()
-        rdf = ratio.reset_index(); rdf.columns=["Date","Ratio"]
-        col_r = "#16a34a" if rdf["Ratio"].iloc[-1] >= rdf["Ratio"].iloc[-2] else "#dc2626"
-        fig_ro = line_chart(rdf, "Ratio", "EEM/TLT (Rising = Risk-On)", col_r, 220)
-        if fig_ro: st.plotly_chart(fig_ro, use_container_width=True)
+    # ── Ratio charts (2 per row) ──────────────────────────────────────────────
+    def _ratio_chart(sym_a, sym_b, title, color, note, period="6y"):
+        ha = get_history(sym_a, period)
+        hb = get_history(sym_b, period)
+        if ha is None or hb is None:
+            return
+        r = (ha["Close"] / hb["Close"]).dropna()
+        r = _since_2020(r)
+        if r.empty:
+            return
+        df = r.rename("Ratio").to_frame()  # keep DatetimeIndex; line_chart will reset_index()
+        col_line = color if df["Ratio"].iloc[-1] >= df["Ratio"].iloc[-2] else "#dc2626"
+        fig = line_chart(df, "Ratio", note, col_line, 220)
+        if fig:
+            section(title)
+            st.plotly_chart(fig, use_container_width=True)
 
-    # Gold / S&P
-    section("Gold ÷ S&P 500 Ratio (Rising = Risk-Off / Safe Haven)")
-    gold_h = get_history("GC=F","1y")
-    spx_h  = get_history("^GSPC","1y")
-    if gold_h is not None and spx_h is not None:
-        gr = (gold_h["Close"] / spx_h["Close"]).dropna()
-        gdf = gr.reset_index(); gdf.columns=["Date","Ratio"]
-        col_g = "#16a34a" if gdf["Ratio"].iloc[-1] >= gdf["Ratio"].iloc[-2] else PALETTE[0]
-        fig_gr = line_chart(gdf,"Ratio","Gold/S&P Ratio","#fbbf24",220)
-        if fig_gr: st.plotly_chart(fig_gr, use_container_width=True)
+    col_l, col_r = st.columns(2)
+    with col_l:
+        _ratio_chart("EEM", "TLT",  "EEM ÷ TLT  (Rising = Risk-On)",          "#16a34a", "EEM/TLT")
+        _ratio_chart("CPER","GLD",  "Copper ÷ Gold  (Rising = Growth)",        "#f59e0b", "Copper/Gold")
+    with col_r:
+        _ratio_chart("GC=F","^GSPC","Gold ÷ S&P 500  (Rising = Risk-Off)",     "#fbbf24", "Gold/SPX")
+        _ratio_chart("HYG", "TLT",  "HYG ÷ TLT  (Rising = Risk-On / Spread Tight)", "#6366f1", "HYG/TLT")
 
-    # Normalised YTD comparison
-    section("YTD Normalised Performance (Base = 100)")
-    COMPARE = {"S&P 500":"^GSPC","Gold":"GC=F","Bitcoin":"BTC-USD",
-               "TLT (Bonds)":"TLT","DXY":"DX-Y.NYB","WTI Oil":"CL=F"}
-    ch = get_multi_history(list(COMPARE.values()), "ytd")
-    if ch is not None:
-        fig_cmp = go.Figure()
-        for i,(name,sym) in enumerate(COMPARE.items()):
-            col = sym if sym in ch.columns else None
-            if col is None: continue
-            s = ch[col].dropna()
-            if len(s) < 2: continue
-            norm = s / s.iloc[0] * 100
-            fig_cmp.add_trace(go.Scatter(
-                x=norm.index, y=norm.values, mode="lines", name=name,
-                line=dict(color=PALETTE[i%len(PALETTE)], width=2),
-                hovertemplate=f"{name}: %{{y:.1f}}<extra></extra>",
-            ))
-        fig_cmp.add_hline(y=100, line_dash="dot", line_color="#2d3142", opacity=0.8)
-        layout_cmp = base_layout(320)
-        layout_cmp["showlegend"] = True
-        layout_cmp["legend"] = dict(
-            font=dict(color="#8891a5",size=10,family="Inter"),
-            bgcolor="rgba(0,0,0,0)", bordercolor="rgba(0,0,0,0.06)",
-            borderwidth=1, x=0.01, y=0.99,
+    # ── Regime history charts ─────────────────────────────────────────────────
+    if rd:
+        # Filter to display window (2020-01-01 onward); computation used full 7y
+        hist_disp = _since_2020(history)
+        sigs_disp = _since_2020(signals)
+
+        section("Composite Risk-On Score — History")
+        fig_comp = go.Figure()
+        regime_map = {"Risk-On": REGIME_COLORS["Risk-On"],
+                      "Neutral": REGIME_COLORS["Neutral"],
+                      "Risk-Off": REGIME_COLORS["Risk-Off"]}
+        prev_regime = None
+        band_start  = None
+        for date, row in hist_disp.iterrows():
+            r = row["regime"]
+            if r != prev_regime:
+                if prev_regime is not None:
+                    fig_comp.add_vrect(x0=band_start, x1=date,
+                                       fillcolor=regime_map[prev_regime],
+                                       opacity=0.08, layer="below", line_width=0)
+                band_start  = date
+                prev_regime = r
+        if prev_regime and band_start:
+            fig_comp.add_vrect(x0=band_start, x1=hist_disp.index[-1],
+                               fillcolor=regime_map[prev_regime],
+                               opacity=0.08, layer="below", line_width=0)
+        fig_comp.add_trace(go.Scatter(
+            x=hist_disp.index, y=hist_disp["composite"], mode="lines",
+            line=dict(color="#6366f1", width=2),
+            hovertemplate="%{x|%Y-%m-%d}<br>Score: %{y:.2f}<extra></extra>",
+        ))
+        fig_comp.add_hline(y=0, line_dash="dot", line_color="#9ca3af", line_width=1)
+        fig_comp.update_layout(
+            height=320, margin=dict(l=0,r=0,t=10,b=0),
+            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)", showlegend=False,
+            yaxis=dict(title="Risk-On Score", gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(type="date", tickformat="%b %Y", gridcolor="rgba(180,185,210,0.18)",
+                       tickfont=dict(size=9, color=TICK_COLOR)),
         )
-        layout_cmp["yaxis"]["ticksuffix"] = ""
-        fig_cmp.update_layout(**layout_cmp)
-        st.plotly_chart(fig_cmp, use_container_width=True)
+        st.plotly_chart(fig_comp, use_container_width=True)
+
+        section("Indicator Z-Scores — History")
+        z_cols = [c for c in sigs_disp.columns if c.startswith("z_")]
+        fig_z = go.Figure()
+        colors_line = ["#6366f1","#f59e0b","#16a34a","#dc2626","#0ea5e9"]
+        for j, col in enumerate(z_cols):
+            label = col.replace("z_", "")
+            fig_z.add_trace(go.Scatter(
+                x=sigs_disp.index, y=sigs_disp[col], mode="lines", name=label,
+                line=dict(color=colors_line[j % len(colors_line)], width=1.5),
+                hovertemplate=f"{label}<br>%{{x|%Y-%m-%d}}<br>Z: %{{y:.2f}}<extra></extra>",
+            ))
+        fig_z.add_hline(y=0, line_dash="dot", line_color="#9ca3af", line_width=1)
+        fig_z.update_layout(
+            height=320, margin=dict(l=0,r=0,t=10,b=0),
+            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", y=-0.15),
+            yaxis=dict(title="Z-Score", gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(type="date", tickformat="%b %Y", gridcolor="rgba(180,185,210,0.18)",
+                       tickfont=dict(size=9, color=TICK_COLOR)),
+        )
+        st.plotly_chart(fig_z, use_container_width=True)
+
+        section("Regime Probability — History")
+        from models.regime import _fit_gmm, _label_regimes
+        # GMM fitted on full history; predict only display window
+        X_hist     = signals["composite"].dropna().values.reshape(-1, 1)
+        gmm_hist   = _fit_gmm(signals["composite"].dropna())
+        lmap_hist  = _label_regimes(gmm_hist)
+        comp_disp  = sigs_disp["composite"].dropna()
+        probs_hist = gmm_hist.predict_proba(comp_disp.values.reshape(-1, 1))
+        idx_hist   = comp_disp.index
+        fig_prob = go.Figure()
+        for ci in range(gmm_hist.n_components):
+            lbl = lmap_hist[ci]
+            fig_prob.add_trace(go.Bar(
+                x=idx_hist, y=probs_hist[:, ci], name=lbl,
+                marker_color=REGIME_COLORS[lbl], opacity=0.75,
+                hovertemplate=f"{lbl}<br>%{{x|%Y-%m-%d}}<br>%{{y:.0%}}<extra></extra>",
+            ))
+        fig_prob.update_layout(
+            barmode="stack", height=260, margin=dict(l=0,r=0,t=10,b=0),
+            paper_bgcolor=CHART_BG, plot_bgcolor="rgba(0,0,0,0)",
+            legend=dict(orientation="h", y=-0.2),
+            yaxis=dict(title="Probability", tickformat=".0%",
+                       gridcolor="rgba(180,185,210,0.18)"),
+            xaxis=dict(type="date", tickformat="%b %Y", gridcolor="rgba(180,185,210,0.18)",
+                       tickfont=dict(size=9, color=TICK_COLOR)),
+        )
+        st.plotly_chart(fig_prob, use_container_width=True)
+
+    # ── Methodology ───────────────────────────────────────────────────────────
+    with st.expander("📖 Methodology & Indicator Guide", expanded=False):
+        st.markdown("""
+**Indicators**
+
+| Indicator | Proxy | Risk-On Signal |
+|---|---|---|
+| VIX | CBOE Volatility Index | Low & falling VIX → calm markets |
+| EEM / TLT | Emerging Markets ETF ÷ Long-Term Treasury ETF | Rising ratio → appetite for risk assets |
+| Gold / SPX | Gold ETF ÷ S&P 500 ETF | Falling ratio → equities preferred over safe haven |
+| Copper / Gold | Copper Index ETF ÷ Gold ETF | Rising ratio → growth optimism (industrial vs safe haven) |
+| HYG / TLT | High-Yield Bond ETF ÷ Long-Term Treasury ETF | Rising ratio → tight credit spreads, risk-on |
+
+**Scoring**
+
+Each indicator is transformed into two signals:
+- **Z-score** — how far the current value is from its 52-week rolling mean (in standard deviations)
+- **Momentum** — difference between 4-week and 13-week rate-of-change, then z-scored
+
+Each signal is sign-adjusted so that positive = risk-on contribution. The two signals are blended equally, then averaged across all 5 indicators to produce the **Composite Risk-On Score**.
+
+**Regime Classification**
+
+A **Gaussian Mixture Model (GMM)** with 3 components is fitted on the full 7-year history of the composite score. GMM learns the natural distribution of market regimes without requiring predefined thresholds — the three clusters are ranked by their mean and labelled **Risk-Off / Neutral / Risk-On**. The output is a probability for each state, not a hard classification.
+
+*Data: Yahoo Finance · Weekly bars · 7-year lookback · Recalculated hourly*
+        """)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
