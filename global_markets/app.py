@@ -2065,8 +2065,8 @@ with tabs[8]:
 
     st.markdown(f"#### {ft_cfg['label']}")
 
-    def _ft_tv_chart(tv_symbol: str, tv_interval: str, tf_label: str, height: int = 520) -> None:
-        """Embed a TradingView widget with MACD + RoC(7) studies."""
+    def _ft_tv_chart(tv_symbol: str, tv_interval: str, tf_label: str, height: int = 620) -> None:
+        """Embed a TradingView widget with MACD histogram + RoC(7); no volume, no MACD lines."""
         cid = f"ft_{abs(hash(tv_symbol + tv_interval))}"
         html = f"""
         <div style="font-size:11px;color:#6b7494;margin-bottom:4px;font-weight:600">{tf_label}</div>
@@ -2089,10 +2089,15 @@ with tabs[8]:
           "hide_top_toolbar": false,
           "withdateranges": true,
           "details": false,
+          "hide_volume": true,
           "studies": [
             "MACD@tv-basicstudies",
             "ROC@tv-basicstudies"
-          ]
+          ],
+          "studies_overrides": {{
+            "macd.macd line.visible": false,
+            "macd.signal line.visible": false
+          }}
         }});
         </script>
         """
