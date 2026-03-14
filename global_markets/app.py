@@ -810,13 +810,13 @@ st.markdown("""
 # TABS
 # ══════════════════════════════════════════════════════════════════════════════
 tabs = st.tabs([
+    "🧭  Macro Pulse",
     "📈  Equities",
     "💵  ETF Flows",
     "🏦  Fixed Income",
     "🛢  Commodities",
     "💱  Currencies",
     "₿   Crypto",
-    "🧠  Sentiment & Regime",
     "💰  Private Credit",
 ])
 
@@ -824,7 +824,7 @@ tabs = st.tabs([
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 — EQUITIES
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[0]:
+with tabs[1]:
 
     # ── Heatmap + region nav ────────────────────────────────────────────────
     all_idx = {n: s for r in INDICES.values() for n, s in r.items()}
@@ -952,7 +952,7 @@ with tabs[0]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — ETF FLOWS
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[1]:
+with tabs[2]:
     section("ETF Flow Analysis")
     st.markdown(
         "<p style='font-size:11px;color:#2d3142;margin:-10px 0 12px'>"
@@ -1140,7 +1140,7 @@ with tabs[1]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 — FIXED INCOME
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[2]:
+with tabs[3]:
     fi_tabs = st.tabs(["🇺🇸 United States", "🇯🇵 Japan"])
 
     # ── US Fixed Income ──────────────────────────────────────────────────────
@@ -1269,7 +1269,7 @@ with tabs[2]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 4 — COMMODITIES
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[3]:
+with tabs[4]:
     comm_tabs = st.tabs(list(COMMODITIES.keys()) + ["📊 All"])
 
     _COMM_ETF_MAP = {
@@ -1342,7 +1342,7 @@ with tabs[3]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 5 — CURRENCIES
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[4]:
+with tabs[5]:
     fx_tabs = st.tabs(["Majors", "Emerging Markets", "📊 FX Heatmap"])
 
     for fi, (cat, items) in enumerate(CURRENCIES.items()):
@@ -1405,7 +1405,7 @@ with tabs[4]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 6 — CRYPTO
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[5]:
+with tabs[6]:
     if "crypto_chart_sym" not in st.session_state:
         st.session_state["crypto_chart_sym"] = "BTC-USD"
     sel_sym = st.session_state["crypto_chart_sym"]
@@ -1474,7 +1474,7 @@ with tabs[5]:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 7 — SENTIMENT
 # ══════════════════════════════════════════════════════════════════════════════
-with tabs[6]:
+with tabs[0]:
     # ── Load regime data first (needed for hero + cards) ──────────────────────
     with st.spinner("Computing regime signals…"):
         rd = get_regime_data()
@@ -1716,6 +1716,34 @@ with tabs[6]:
             xaxis=dict(gridcolor="rgba(180,185,210,0.18)"),
         )
         st.plotly_chart(fig_prob, use_container_width=True)
+
+    # ── Methodology ───────────────────────────────────────────────────────────
+    with st.expander("📖 Methodology & Indicator Guide", expanded=False):
+        st.markdown("""
+**Indicators**
+
+| Indicator | Proxy | Risk-On Signal |
+|---|---|---|
+| VIX | CBOE Volatility Index | Low & falling VIX → calm markets |
+| EEM / TLT | Emerging Markets ETF ÷ Long-Term Treasury ETF | Rising ratio → appetite for risk assets |
+| Gold / SPX | Gold ETF ÷ S&P 500 ETF | Falling ratio → equities preferred over safe haven |
+| Copper / Gold | Copper Index ETF ÷ Gold ETF | Rising ratio → growth optimism (industrial vs safe haven) |
+| HYG / TLT | High-Yield Bond ETF ÷ Long-Term Treasury ETF | Rising ratio → tight credit spreads, risk-on |
+
+**Scoring**
+
+Each indicator is transformed into two signals:
+- **Z-score** — how far the current value is from its 52-week rolling mean (in standard deviations)
+- **Momentum** — difference between 4-week and 13-week rate-of-change, then z-scored
+
+Each signal is sign-adjusted so that positive = risk-on contribution. The two signals are blended equally, then averaged across all 5 indicators to produce the **Composite Risk-On Score**.
+
+**Regime Classification**
+
+A **Gaussian Mixture Model (GMM)** with 3 components is fitted on the full 7-year history of the composite score. GMM learns the natural distribution of market regimes without requiring predefined thresholds — the three clusters are ranked by their mean and labelled **Risk-Off / Neutral / Risk-On**. The output is a probability for each state, not a hard classification.
+
+*Data: Yahoo Finance · Weekly bars · 7-year lookback · Recalculated hourly*
+        """)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
