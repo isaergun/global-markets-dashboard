@@ -1541,6 +1541,12 @@ with tabs[0]:
 
     _DISP_START = pd.Timestamp("2020-01-01")
 
+    def _since_2020(obj):
+        """Slice a DataFrame/Series to _DISP_START, handling tz-aware indices."""
+        idx = obj.index
+        start = _DISP_START.tz_localize(idx.tz) if idx.tz is not None else _DISP_START
+        return obj.loc[idx >= start]
+
     # ── VIX Gauge + History ───────────────────────────────────────────────────
     SENT = {"VIX": "^VIX", "VVIX": "^VVIX", "S&P 500":"^GSPC",
             "Gold":"GC=F", "WTI":"CL=F", "DXY":"DX-Y.NYB",
@@ -1594,7 +1600,7 @@ with tabs[0]:
             section("VIX — 2020 to Present")
             vix_h = get_history("^VIX","7y")
             if vix_h is not None:
-                vix_h = vix_h.loc[vix_h.index >= _DISP_START]
+                vix_h = _since_2020(vix_h)
                 vdf = vix_h.reset_index(); vdf.columns=[str(c) for c in vdf.columns]
                 dc = vdf.columns[0]
                 fig_vh = go.Figure()
@@ -1623,7 +1629,7 @@ with tabs[0]:
         if ha is None or hb is None:
             return
         r = (ha["Close"] / hb["Close"]).dropna()
-        r = r.loc[r.index >= _DISP_START]
+        r = _since_2020(r)
         if r.empty:
             return
         df = r.rename("Ratio").to_frame()  # keep DatetimeIndex; line_chart will reset_index()
@@ -1644,8 +1650,8 @@ with tabs[0]:
     # ── Regime history charts ─────────────────────────────────────────────────
     if rd:
         # Filter to display window (2020-01-01 onward); computation used full 7y
-        hist_disp = history.loc[history.index >= _DISP_START]
-        sigs_disp = signals.loc[signals.index >= _DISP_START]
+        hist_disp = _since_2020(history)
+        sigs_disp = _since_2020(signals)
 
         section("Composite Risk-On Score — History")
         fig_comp = go.Figure()
