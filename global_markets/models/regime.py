@@ -1,9 +1,13 @@
 """
 Cross-Market Regime Indicator
 ─────────────────────────────
+Two modes:
+  short — daily bars, 3-year fetch, z-score 252d, momentum 20d/60d, display 2024+
+  long  — weekly bars, 7-year fetch, z-score 52w,  momentum 4w/13w,  display 2020+
+
 Methodology:
-  1. Fetch ~7 years of weekly closes for 5 macro indicators
-  2. Compute rolling 52-week z-score + 4W/13W momentum for each
+  1. Fetch price history for 5 macro indicators
+  2. Compute rolling z-score + fast/slow momentum for each
   3. Build composite risk-on score (signs aligned so +score = risk-on)
   4. Fit a 3-component GMM on full history → label regimes
   5. Return current regime, probabilities, and full history for charting
@@ -17,31 +21,45 @@ from sklearn.mixture import GaussianMixture
 
 
 # ── Indicator definitions ─────────────────────────────────────────────────────
-# Each entry: single ticker or ratio of two tickers.
-# risk_on_direction: +1 if higher value = more risk-on, -1 if inverse.
 INDICATORS = {
     "VIX":         {"tickers": ["^VIX"],        "ratio": False, "risk_on_dir": -1},
     "EEM/TLT":     {"tickers": ["EEM", "TLT"],  "ratio": True,  "risk_on_dir": +1},
     "Gold/SPX":    {"tickers": ["GLD", "SPY"],  "ratio": True,  "risk_on_dir": -1},
     "Copper/Gold": {"tickers": ["CPER", "GLD"], "ratio": True,  "risk_on_dir": +1},
-    "HYG/TLT":    {"tickers": ["HYG", "TLT"],  "ratio": True,  "risk_on_dir": +1},
+    "HYG/TLT":     {"tickers": ["HYG", "TLT"],  "ratio": True,  "risk_on_dir": +1},
 }
 
-INTERVAL       = "1wk"  # weekly bars
-ZSCORE_WINDOW  = 52    # rolling window for z-score (1 year of weeks)
-MOM_FAST       = 4     # fast momentum window (4 weeks ≈ 1 month)
-MOM_SLOW       = 13    # slow momentum window (13 weeks ≈ 1 quarter)
-LOOKBACK_YEARS = 7     # history to fetch
+# ── Mode configs ──────────────────────────────────────────────────────────────
+_CONFIGS = {
+    "long": {
+        "interval":      "1wk",
+        "zscore_window": 52,
+        "mom_fast":      4,
+        "mom_slow":      13,
+        "lookback_years": 7,
+        "disp_start":    "2020-01-01",
+        "label":         "Long-term (Weekly)",
+    },
+    "short": {
+        "interval":      "1d",
+        "zscore_window": 252,
+        "mom_fast":      20,
+        "mom_slow":      60,
+        "lookback_years": 3,
+        "disp_start":    "2024-01-01",
+        "label":         "Short-term (Daily)",
+    },
+}
 
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner=False)
-def _fetch_closes(tickers: tuple[str, ...]) -> pd.DataFrame:
+def _fetch_closes(tickers: tuple[str, ...], interval: str, lookback_years: int) -> pd.DataFrame:
     """Download adjusted close prices for a list of tickers."""
     raw = yf.download(
         list(tickers),
-        period=f"{LOOKBACK_YEARS}y",
-        interval=INTERVAL,
+        period=f"{lookback_years}y",
+        interval=interval,
         auto_adjust=True,
         progress=False,
     )
@@ -61,18 +79,18 @@ def _rolling_zscore(series: pd.Series, window: int) -> pd.Series:
     return (series - mu) / sig.replace(0, np.nan)
 
 
-def _momentum_score(series: pd.Series) -> pd.Series:
+def _momentum_score(series: pd.Series, mom_fast: int, mom_slow: int,
+                    zscore_window: int) -> pd.Series:
     """Normalised momentum: fast ROC minus slow ROC, z-scored."""
-    roc_fast = series.pct_change(MOM_FAST)
-    roc_slow = series.pct_change(MOM_SLOW)
-    raw = roc_fast - roc_slow
-    return _rolling_zscore(raw, ZSCORE_WINDOW)
+    roc_fast = series.pct_change(mom_fast)
+    roc_slow = series.pct_change(mom_slow)
+    return _rolling_zscore(roc_fast - roc_slow, zscore_window)
 
 
-def _build_indicator_series() -> pd.DataFrame:
+def _build_indicator_series(interval: str, lookback_years: int) -> pd.DataFrame:
     """Return DataFrame with one column per indicator (raw price/ratio)."""
     all_tickers = list({t for v in INDICATORS.values() for t in v["tickers"]})
-    closes = _fetch_closes(tuple(all_tickers))
+    closes = _fetch_closes(tuple(all_tickers), interval, lookback_years)
     if closes.empty:
         return pd.DataFrame()
 
@@ -92,12 +110,9 @@ def _build_indicator_series() -> pd.DataFrame:
     return pd.DataFrame(series).dropna(how="all")
 
 
-def _compute_signals(raw: pd.DataFrame) -> pd.DataFrame:
-    """
-    For each indicator compute z-score and momentum, then align direction so
-    positive = risk-on contribution.  Returns composite and per-indicator scores.
-    """
-    z_scores  = {}
+def _compute_signals(raw: pd.DataFrame, zscore_window: int,
+                     mom_fast: int, mom_slow: int) -> pd.DataFrame:
+    z_scores   = {}
     mom_scores = {}
     composites = {}
 
@@ -105,24 +120,23 @@ def _compute_signals(raw: pd.DataFrame) -> pd.DataFrame:
         if name not in raw.columns:
             continue
         s   = raw[name]
-        z   = _rolling_zscore(s, ZSCORE_WINDOW)
-        mom = _momentum_score(s)
+        z   = _rolling_zscore(s, zscore_window)
+        mom = _momentum_score(s, mom_fast, mom_slow, zscore_window)
         d   = cfg["risk_on_dir"]
 
         z_scores[name]   = z   * d
         mom_scores[name] = mom * d
-        composites[name] = (z * d + mom * d) / 2  # equal blend
+        composites[name] = (z * d + mom * d) / 2
 
-    df_z   = pd.DataFrame(z_scores)
-    df_mom = pd.DataFrame(mom_scores)
+    df_z    = pd.DataFrame(z_scores)
+    df_mom  = pd.DataFrame(mom_scores)
     df_comp = pd.DataFrame(composites)
 
-    composite = df_comp.mean(axis=1)   # equal-weight across indicators
-
+    composite = df_comp.mean(axis=1)
     out = pd.DataFrame({"composite": composite})
     for col in df_z.columns:
-        out[f"z_{col}"]   = df_z[col]
-        out[f"mom_{col}"] = df_mom[col]
+        out[f"z_{col}"]    = df_z[col]
+        out[f"mom_{col}"]  = df_mom[col]
         out[f"comp_{col}"] = df_comp[col]
 
     return out.dropna(subset=["composite"])
@@ -142,35 +156,37 @@ def _fit_gmm(composite: pd.Series, n_components: int = 3) -> GaussianMixture:
 
 
 def _label_regimes(gmm: GaussianMixture) -> dict[int, str]:
-    """
-    Sort GMM components by mean and assign Risk-Off / Neutral / Risk-On labels.
-    (Lowest mean = most risk-off)
-    """
-    order = np.argsort(gmm.means_.flatten())
+    order  = np.argsort(gmm.means_.flatten())
     labels = {}
-    names  = ["Risk-Off", "Neutral", "Risk-On"]
     for rank, comp_idx in enumerate(order):
-        labels[comp_idx] = names[rank]
+        labels[comp_idx] = ["Risk-Off", "Neutral", "Risk-On"][rank]
     return labels
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner=False)
-def get_regime_data() -> dict:
+def get_regime_data(mode: str = "short") -> dict:
     """
+    mode: "short" (daily, 2024+) or "long" (weekly, 2020+)
+
     Returns:
-        regime        : str  — current regime label
-        probabilities : dict — {label: probability}
+        regime        : str
+        probabilities : dict {label: probability}
         composite_now : float
-        z_scores_now  : dict — {indicator: z-score}
-        mom_scores_now: dict — {indicator: momentum score}
-        history       : pd.DataFrame — full time series (composite + regime)
+        z_scores_now  : dict {indicator: z-score}
+        mom_scores_now: dict {indicator: momentum score}
+        history       : pd.DataFrame (composite + regime)
+        signals       : pd.DataFrame
+        config        : dict (mode config used)
     """
-    raw = _build_indicator_series()
+    cfg = _CONFIGS[mode]
+
+    raw = _build_indicator_series(cfg["interval"], cfg["lookback_years"])
     if raw.empty:
         return {}
 
-    signals = _compute_signals(raw)
+    signals = _compute_signals(raw, cfg["zscore_window"],
+                                cfg["mom_fast"], cfg["mom_slow"])
     if signals.empty or signals["composite"].dropna().empty:
         return {}
 
@@ -178,9 +194,9 @@ def get_regime_data() -> dict:
     label_map   = _label_regimes(gmm)
     comp_series = signals["composite"].dropna()
 
-    X        = comp_series.values.reshape(-1, 1)
-    labels   = gmm.predict(X)
-    probs    = gmm.predict_proba(X)
+    X      = comp_series.values.reshape(-1, 1)
+    labels = gmm.predict(X)
+    probs  = gmm.predict_proba(X)
 
     history = pd.DataFrame({
         "date":      comp_series.index,
@@ -188,7 +204,6 @@ def get_regime_data() -> dict:
         "regime":    [label_map[l] for l in labels],
     }).set_index("date")
 
-    # Current (last row)
     current_label = history["regime"].iloc[-1]
     current_probs = {label_map[i]: round(float(probs[-1, i]), 3)
                      for i in range(gmm.n_components)}
@@ -207,6 +222,7 @@ def get_regime_data() -> dict:
         "mom_scores_now": mom_now,
         "history":        history,
         "signals":        signals,
+        "config":         cfg,
     }
 
 
