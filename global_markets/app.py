@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
+import requests
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -818,6 +819,7 @@ tabs = st.tabs([
     "💱  Currencies",
     "₿   Crypto",
     "💰  Private Credit",
+    "🎯  Predictions",
 ])
 
 
@@ -2048,6 +2050,132 @@ Widening CLO AAA spreads are an early signal of stress in the broader leveraged 
             show_al = [c for c in ["Name","Ticker","Price","1D %","5D %","1M %","YTD %","Rel. Vol."]
                        if c in df_all_loan.columns]
             st.dataframe(style_df(df_all_loan[show_al]), use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 8 — PREDICTIONS (Polymarket)
+# ══════════════════════════════════════════════════════════════════════════════
+@st.cache_data(ttl=120, show_spinner=False)
+def _fetch_top_markets(limit: int = 20) -> list[dict]:
+    """Fetch active Polymarket markets sorted by total volume."""
+    try:
+        resp = requests.get(
+            "https://gamma-api.polymarket.com/markets",
+            params={
+                "active":     "true",
+                "closed":     "false",
+                "limit":      limit,
+                "order":      "volume",
+                "ascending":  "false",
+            },
+            timeout=10,
+        )
+        if resp.ok:
+            return resp.json() if isinstance(resp.json(), list) else []
+    except Exception:
+        pass
+    return []
+
+
+def _pm_card(market: dict) -> None:
+    """Render a single Polymarket market card."""
+    question   = market.get("question") or market.get("title") or "Unknown"
+    volume     = float(market.get("volume") or 0)
+    volume24h  = float(market.get("volume24hr") or 0)
+    end_raw    = market.get("endDate") or market.get("endDateIso") or ""
+    url        = market.get("url") or f"https://polymarket.com"
+    outcomes   = market.get("outcomes") or []
+    op         = market.get("outcomePrices") or []
+
+    # Parse prices
+    yes_p = no_p = None
+    if len(op) >= 2:
+        try:
+            yes_p = float(op[0])
+            no_p  = float(op[1])
+            if outcomes and str(outcomes[0]).lower() in ("no", "down"):
+                yes_p, no_p = no_p, yes_p
+        except (ValueError, TypeError):
+            pass
+
+    # Time remaining
+    time_left = ""
+    if end_raw:
+        try:
+            from datetime import timezone as _tz
+            end_dt   = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+            delta    = end_dt - datetime.now(_tz.utc)
+            days     = delta.days
+            if days > 1:
+                time_left = f"{days}d left"
+            elif days == 1:
+                time_left = "1d left"
+            elif delta.total_seconds() > 0:
+                hrs = int(delta.total_seconds() // 3600)
+                time_left = f"{hrs}h left"
+            else:
+                time_left = "Expired"
+        except Exception:
+            pass
+
+    yes_color = "#16a34a" if yes_p is not None and yes_p >= 0.5 else "#dc2626"
+    no_color  = "#dc2626" if yes_p is not None and yes_p >= 0.5 else "#16a34a"
+
+    yes_pct = f"{yes_p*100:.0f}%" if yes_p is not None else "—"
+    no_pct  = f"{no_p*100:.0f}%"  if no_p  is not None else "—"
+
+    vol_fmt   = f"${volume/1e6:.1f}M"  if volume  >= 1e6 else f"${volume/1e3:.0f}K"
+    vol24_fmt = f"${volume24h/1e6:.1f}M" if volume24h >= 1e6 else f"${volume24h/1e3:.0f}K"
+
+    st.markdown(f"""
+<a href="{url}" target="_blank" style="text-decoration:none">
+<div style="background:#1e2130;border-radius:12px;padding:16px;margin-bottom:8px;
+            border:1px solid #2d3142;cursor:pointer;transition:border .2s"
+     onmouseover="this.style.borderColor='#4a5568'"
+     onmouseout="this.style.borderColor='#2d3142'">
+  <div style="font-size:13px;font-weight:600;color:#e2e8f0;line-height:1.4;
+              margin-bottom:10px">{question}</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <div style="flex:1;background:{yes_color}22;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:2px">YES</div>
+      <div style="font-size:18px;font-weight:800;color:{yes_color}">{yes_pct}</div>
+    </div>
+    <div style="flex:1;background:{no_color}22;border-radius:8px;padding:8px;text-align:center">
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:2px">NO</div>
+      <div style="font-size:18px;font-weight:800;color:{no_color}">{no_pct}</div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280">
+    <span>Vol: <b style="color:#c9d1e0">{vol_fmt}</b></span>
+    <span>24h: <b style="color:#c9d1e0">{vol24_fmt}</b></span>
+    <span style="color:#f59e0b">{time_left}</span>
+  </div>
+</div>
+</a>
+""", unsafe_allow_html=True)
+
+
+with tabs[8]:
+    section("Top 10 Active Markets by Volume")
+    st.caption("Live data from Polymarket · Click any card to open on Polymarket · Refreshes every 2 min")
+
+    with st.spinner("Fetching Polymarket data…"):
+        _pm_markets = _fetch_top_markets(limit=20)
+
+    if not _pm_markets:
+        st.warning("Could not fetch Polymarket data.")
+    else:
+        # Take top 10 by volume
+        _pm_top10 = sorted(
+            _pm_markets,
+            key=lambda m: float(m.get("volume") or 0),
+            reverse=True,
+        )[:10]
+
+        col_a, col_b = st.columns(2)
+        for i, mkt in enumerate(_pm_top10):
+            with (col_a if i % 2 == 0 else col_b):
+                _pm_card(mkt)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
