@@ -2079,24 +2079,43 @@ def _fetch_top_markets(limit: int = 20) -> list[dict]:
 
 def _pm_card(market: dict) -> None:
     """Render a single Polymarket market card."""
-    question   = market.get("question") or market.get("title") or "Unknown"
-    volume     = float(market.get("volume") or 0)
-    volume24h  = float(market.get("volume24hr") or 0)
-    end_raw    = market.get("endDate") or market.get("endDateIso") or ""
-    url        = market.get("url") or f"https://polymarket.com"
-    outcomes   = market.get("outcomes") or []
-    op         = market.get("outcomePrices") or []
+    import json as _json
+    question  = market.get("question") or market.get("title") or "Unknown"
+    volume    = float(market.get("volumeNum") or market.get("volume") or 0)
+    volume24h = float(market.get("volume24hr") or 0)
+    end_raw   = market.get("endDateIso") or market.get("endDate") or ""
+    slug      = market.get("slug") or ""
+    url       = f"https://polymarket.com/event/{slug}" if slug else "https://polymarket.com"
+    outcomes  = market.get("outcomes") or []
 
-    # Parse prices
+    # outcomePrices is a JSON-encoded string e.g. '["0.8","0.2"]'
+    op_raw = market.get("outcomePrices")
+    if isinstance(op_raw, str):
+        try:
+            op = _json.loads(op_raw)
+        except Exception:
+            op = []
+    else:
+        op = op_raw or []
+
+    # Primary: bestBid/bestAsk midpoint (already floats); fallback: outcomePrices
     yes_p = no_p = None
-    if len(op) >= 2:
+    bid = market.get("bestBid")
+    ask = market.get("bestAsk")
+    if bid is not None and ask is not None:
+        try:
+            yes_p = (float(bid) + float(ask)) / 2
+            no_p  = 1.0 - yes_p
+        except (ValueError, TypeError):
+            pass
+    if yes_p is None and len(op) >= 2:
         try:
             yes_p = float(op[0])
             no_p  = float(op[1])
-            if outcomes and str(outcomes[0]).lower() in ("no", "down"):
-                yes_p, no_p = no_p, yes_p
         except (ValueError, TypeError):
             pass
+    if yes_p is not None and outcomes and str(outcomes[0]).lower() in ("no", "down"):
+        yes_p, no_p = no_p, yes_p
 
     # Time remaining
     time_left = ""
@@ -2137,11 +2156,11 @@ def _pm_card(market: dict) -> None:
               margin-bottom:10px">{question}</div>
   <div style="display:flex;gap:8px;margin-bottom:10px">
     <div style="flex:1;background:{yes_color}22;border-radius:8px;padding:8px;text-align:center">
-      <div style="font-size:10px;color:#9ca3af;margin-bottom:2px">YES</div>
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:2px">{str(outcomes[0]).upper() if outcomes else "YES"}</div>
       <div style="font-size:18px;font-weight:800;color:{yes_color}">{yes_pct}</div>
     </div>
     <div style="flex:1;background:{no_color}22;border-radius:8px;padding:8px;text-align:center">
-      <div style="font-size:10px;color:#9ca3af;margin-bottom:2px">NO</div>
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:2px">{str(outcomes[1]).upper() if len(outcomes) > 1 else "NO"}</div>
       <div style="font-size:18px;font-weight:800;color:{no_color}">{no_pct}</div>
     </div>
   </div>
