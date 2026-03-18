@@ -107,7 +107,7 @@ def _build_indicator_series(interval: str, lookback_years: int) -> pd.DataFrame:
             s = closes[tks[0]]
         series[name] = s
 
-    return pd.DataFrame(series).dropna(how="all")
+    return pd.DataFrame(series).ffill().dropna(how="all")
 
 
 def _compute_signals(raw: pd.DataFrame, zscore_window: int,

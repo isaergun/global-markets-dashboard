@@ -1529,10 +1529,10 @@ with tabs[0]:
 
         # ── Indicator Breakdown cards ──────────────────────────────────────
         section("Indicator Breakdown")
+        import math as _math
         ind_names = list(z_now.keys())
         cols = st.columns(len(ind_names))
         for i, name in enumerate(ind_names):
-            import math as _math
             z   = z_now.get(name, float("nan"))
             mom = mom_now.get(name, float("nan"))
             z_ok   = not _math.isnan(z)
