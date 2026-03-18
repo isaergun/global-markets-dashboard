@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from datetime import datetime, timezone
+import requests
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -1475,9 +1476,20 @@ with tabs[6]:
 # TAB 7 — SENTIMENT
 # ══════════════════════════════════════════════════════════════════════════════
 with tabs[0]:
-    # ── Load regime data first (needed for hero + cards) ──────────────────────
+    # ── Horizon toggle ────────────────────────────────────────────────────────
+    macro_mode = st.radio(
+        "Horizon",
+        options=["short", "long"],
+        format_func=lambda x: "📅 Short-term (Daily · 2024+)" if x == "short"
+                               else "📆 Long-term (Weekly · 2020+)",
+        horizontal=True,
+        key="macro_mode",
+        label_visibility="collapsed",
+    )
+
+    # ── Load regime data ───────────────────────────────────────────────────────
     with st.spinner("Computing regime signals…"):
-        rd = get_regime_data()
+        rd = get_regime_data(mode=macro_mode)
 
     # ── Current Regime Hero ───────────────────────────────────────────────────
     if rd:
@@ -1489,10 +1501,13 @@ with tabs[0]:
         history      = rd["history"]
         signals      = rd["signals"]
         regime_color = REGIME_COLORS.get(regime, "#6b7280")
+        _mode_cfg    = rd["config"]
 
         st.markdown(
-            "<p style='font-size:11px;color:#6b7280;margin:4px 0 12px'>"
-            "Z-score + momentum composite across 5 macro indicators (weekly bars, 7-year window). "
+            f"<p style='font-size:11px;color:#6b7280;margin:4px 0 12px'>"
+            f"Z-score + momentum composite across 5 macro indicators "
+            f"({'daily' if macro_mode == 'short' else 'weekly'} bars, "
+            f"{'3' if macro_mode == 'short' else '7'}-year window). "
             "Regime classification via Gaussian Mixture Model (3 states)."
             "</p>", unsafe_allow_html=True,
         )
@@ -1539,9 +1554,11 @@ with tabs[0]:
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    _DISP_START = pd.Timestamp("2020-01-01")
+    _DISP_START   = pd.Timestamp(_mode_cfg["disp_start"])
+    _FETCH_PERIOD = "2y" if macro_mode == "short" else "6y"
+    _VIX_INTERVAL = "1d" if macro_mode == "short" else "1d"  # always daily for VIX history
 
-    def _since_2020(obj):
+    def _since_start(obj):
         """Slice a DataFrame/Series to _DISP_START, handling tz-aware indices."""
         idx = obj.index
         start = _DISP_START.tz_localize(idx.tz) if idx.tz is not None else _DISP_START
@@ -1597,10 +1614,10 @@ with tabs[0]:
             st.plotly_chart(fig_g, use_container_width=True)
 
         with col_vix:
-            section("VIX — 2020 to Present")
-            vix_h = get_history("^VIX","7y")
+            section(f"VIX — {'2024' if macro_mode == 'short' else '2020'} to Present")
+            vix_h = get_history("^VIX", _FETCH_PERIOD)
             if vix_h is not None:
-                vix_h = _since_2020(vix_h)
+                vix_h = _since_start(vix_h)
                 vdf = vix_h.reset_index(); vdf.columns=[str(c) for c in vdf.columns]
                 dc = vdf.columns[0]
                 fig_vh = go.Figure()
@@ -1623,13 +1640,13 @@ with tabs[0]:
                 st.plotly_chart(fig_vh, use_container_width=True)
 
     # ── Ratio charts (2 per row) ──────────────────────────────────────────────
-    def _ratio_chart(sym_a, sym_b, title, color, note, period="6y"):
+    def _ratio_chart(sym_a, sym_b, title, color, note, period=_FETCH_PERIOD):
         ha = get_history(sym_a, period)
         hb = get_history(sym_b, period)
         if ha is None or hb is None:
             return
         r = (ha["Close"] / hb["Close"]).dropna()
-        r = _since_2020(r)
+        r = _since_start(r)
         if r.empty:
             return
         df = r.rename("Ratio").to_frame()  # keep DatetimeIndex; line_chart will reset_index()
@@ -1650,8 +1667,8 @@ with tabs[0]:
     # ── Regime history charts ─────────────────────────────────────────────────
     if rd:
         # Filter to display window (2020-01-01 onward); computation used full 7y
-        hist_disp = _since_2020(history)
-        sigs_disp = _since_2020(signals)
+        hist_disp = _since_start(history)
+        sigs_disp = _since_start(signals)
 
         section("Composite Risk-On Score — History")
         fig_comp = go.Figure()
