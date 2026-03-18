@@ -1532,9 +1532,15 @@ with tabs[0]:
         ind_names = list(z_now.keys())
         cols = st.columns(len(ind_names))
         for i, name in enumerate(ind_names):
-            z   = z_now.get(name, 0)
-            mom = mom_now.get(name, 0)
-            color = REGIME_COLORS["Risk-On"] if z > 0 else REGIME_COLORS["Risk-Off"]
+            import math as _math
+            z   = z_now.get(name, float("nan"))
+            mom = mom_now.get(name, float("nan"))
+            z_ok   = not _math.isnan(z)
+            mom_ok = not _math.isnan(mom)
+            color  = REGIME_COLORS["Risk-On"] if (z_ok and z > 0) else REGIME_COLORS["Risk-Off"]
+            z_str   = f"{z:+.2f}" if z_ok   else "—"
+            mom_str = f"{mom:+.2f}" if mom_ok else "—"
+            mom_color = "#16a34a" if (mom_ok and mom > 0) else "#dc2626"
             with cols[i]:
                 st.markdown(f"""
                 <div style="background:#f9fafb;border-radius:8px;padding:12px;
@@ -1542,10 +1548,10 @@ with tabs[0]:
                   <div style="font-size:10px;font-weight:700;color:#6b7280;
                               text-transform:uppercase;letter-spacing:.06em">{name}</div>
                   <div style="font-size:20px;font-weight:800;color:{color};
-                              margin:4px 0">{z:+.2f}<span style="font-size:11px;
+                              margin:4px 0">{z_str}<span style="font-size:11px;
                               font-weight:400;color:#9ca3af"> z</span></div>
                   <div style="font-size:11px;color:#6b7280">
-                    mom: <b style="color:{'#16a34a' if mom>0 else '#dc2626'}">{mom:+.2f}</b>
+                    mom: <b style="color:{mom_color}">{mom_str}</b>
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
