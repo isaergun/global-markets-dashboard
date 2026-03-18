@@ -209,10 +209,12 @@ def get_regime_data(mode: str = "short") -> dict:
                      for i in range(gmm.n_components)}
     composite_now = float(comp_series.iloc[-1])
 
-    z_now   = {k.replace("z_", ""): float(signals[k].iloc[-1])
-               for k in signals.columns if k.startswith("z_")}
-    mom_now = {k.replace("mom_", ""): float(signals[k].iloc[-1])
-               for k in signals.columns if k.startswith("mom_")}
+    z_now   = {k.replace("z_", ""): float(v)
+               for k in signals.columns if k.startswith("z_")
+               for v in [signals[k].iloc[-1]] if not np.isnan(v)}
+    mom_now = {k.replace("mom_", ""): float(v)
+               for k in signals.columns if k.startswith("mom_")
+               for v in [signals[k].iloc[-1]] if not np.isnan(v)}
 
     return {
         "regime":         current_label,
