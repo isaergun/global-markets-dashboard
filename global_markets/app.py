@@ -967,7 +967,7 @@ with tabs[2]:
     net_rows = []
     for cat_name, cat_etfs in ETF_UNIVERSE.items():
         cat_tickers = list(cat_etfs.keys())
-        f5d_vals, f1m_vals = [], []
+        f5d_vals, f1m_vals, rv_vals = [], [], []
         for tk in cat_tickers:
             fd_c = compute_etf_flow_proxy(tk)
             if fd_c:
@@ -975,12 +975,55 @@ with tabs[2]:
                     f5d_vals.append(fd_c["flow_proxy_5d"])
                 if fd_c.get("flow_proxy_1mo") is not None:
                     f1m_vals.append(fd_c["flow_proxy_1mo"])
+                if fd_c.get("rel_volume") is not None:
+                    rv_vals.append(fd_c["rel_volume"])
         net_rows.append({
-            "Category":  cat_name,
+            "Category":    cat_name,
             "Net Flow 5D": sum(f5d_vals) if f5d_vals else None,
             "Net Flow 1M": sum(f1m_vals) if f1m_vals else None,
+            "Avg Rel. Vol.": (sum(rv_vals) / len(rv_vals)) if rv_vals else None,
         })
     df_net = pd.DataFrame(net_rows)
+
+    # ── Category-level bar charts ──────────────────────────────────────────
+    cat_col_a, cat_col_b = st.columns(2)
+    with cat_col_a:
+        section("5-Day Flow by Category")
+        df_cf = df_net.dropna(subset=["Net Flow 5D"]).sort_values("Net Flow 5D")
+        bar_cc = ["#16a34a" if v >= 0 else "#dc2626" for v in df_cf["Net Flow 5D"]]
+        fig_cf = go.Figure(go.Bar(
+            x=df_cf["Net Flow 5D"], y=df_cf["Category"],
+            orientation="h", marker=dict(color=bar_cc, opacity=0.85, line=dict(width=0)),
+            text=[fmt_flow(v) for v in df_cf["Net Flow 5D"]],
+            textfont=dict(size=9, color="#6b7494", family="JetBrains Mono"),
+            textposition="outside",
+            hovertemplate="%{y}: %{x:,.0f}<extra></extra>",
+        ))
+        layout_cf = base_layout(max(280, len(df_cf) * 36), dict(l=4, r=80, t=4, b=4))
+        layout_cf["bargap"] = 0.3
+        fig_cf.update_layout(**layout_cf)
+        st.plotly_chart(fig_cf, use_container_width=True)
+
+    with cat_col_b:
+        section("Avg Relative Volume by Category")
+        df_crv = df_net.dropna(subset=["Avg Rel. Vol."]).sort_values("Avg Rel. Vol.")
+        rv_cc = ["#f59e0b" if v >= 2 else PALETTE[0] for v in df_crv["Avg Rel. Vol."]]
+        fig_crv = go.Figure(go.Bar(
+            x=df_crv["Avg Rel. Vol."], y=df_crv["Category"],
+            orientation="h", marker=dict(color=rv_cc, opacity=0.85, line=dict(width=0)),
+            text=[f"{v:.2f}×" for v in df_crv["Avg Rel. Vol."]],
+            textfont=dict(size=9, color="#6b7494", family="JetBrains Mono"),
+            textposition="outside",
+            hovertemplate="%{y}: %{x:.2f}×<extra></extra>",
+        ))
+        fig_crv.add_vline(x=1.0, line_dash="dot", line_color="#2d3142", opacity=0.8)
+        layout_crv = base_layout(max(280, len(df_crv) * 36), dict(l=4, r=60, t=4, b=4))
+        layout_crv["xaxis"]["ticksuffix"] = "×"
+        layout_crv["bargap"] = 0.3
+        fig_crv.update_layout(**layout_crv)
+        st.plotly_chart(fig_crv, use_container_width=True)
+
+    # ── Category summary table ─────────────────────────────────────────────
     def _style_net(df):
         out = pd.DataFrame("", index=df.index, columns=df.columns)
         for col in ["Net Flow 5D", "Net Flow 1M"]:
@@ -989,7 +1032,7 @@ with tabs[2]:
                     lambda v: "color:#16a34a;font-weight:600" if v and v > 0
                     else ("color:#dc2626;font-weight:600" if v and v < 0 else ""))
         return out
-    fmt_net = {"Net Flow 5D": fmt_flow, "Net Flow 1M": fmt_flow}
+    fmt_net = {"Net Flow 5D": fmt_flow, "Net Flow 1M": fmt_flow, "Avg Rel. Vol.": "{:.2f}×".format}
     st.dataframe(
         df_net.style.apply(_style_net, axis=None).format(fmt_net, na_rep="—"),
         use_container_width=True, hide_index=True,
