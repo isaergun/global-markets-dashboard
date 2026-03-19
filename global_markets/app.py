@@ -1506,8 +1506,7 @@ with tabs[0]:
         st.markdown(
             f"<p style='font-size:11px;color:#6b7280;margin:4px 0 12px'>"
             f"Z-score + momentum composite across 5 macro indicators "
-            f"({'daily' if macro_mode == 'short' else 'weekly'} bars, "
-            f"{'3' if macro_mode == 'short' else '7'}-year window). "
+            f"({'daily bars · 60d z-score · 5/20d momentum' if macro_mode == 'short' else 'weekly bars · 52w z-score · 4/13w momentum'}). "
             "Regime classification via Gaussian Mixture Model (3 states)."
             "</p>", unsafe_allow_html=True,
         )
