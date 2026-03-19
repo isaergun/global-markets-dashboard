@@ -1762,7 +1762,18 @@ with tabs[0]:
 
     # ── Methodology ───────────────────────────────────────────────────────────
     with st.expander("📖 Methodology & Indicator Guide", expanded=False):
-        st.markdown("""
+        if macro_mode == "short":
+            _zscore_desc = "60-day rolling mean (in standard deviations)"
+            _mom_desc    = "difference between 5-day and 20-day rate-of-change, then z-scored"
+            _gmm_desc    = "2-year"
+            _footer      = "Daily bars · 60d z-score · 5/20d momentum · 2-year lookback · Recalculated hourly"
+        else:
+            _zscore_desc = "52-week rolling mean (in standard deviations)"
+            _mom_desc    = "difference between 4-week and 13-week rate-of-change, then z-scored"
+            _gmm_desc    = "7-year"
+            _footer      = "Weekly bars · 52w z-score · 4/13w momentum · 7-year lookback · Recalculated hourly"
+
+        st.markdown(f"""
 **Indicators**
 
 | Indicator | Proxy | Risk-On Signal |
@@ -1776,16 +1787,16 @@ with tabs[0]:
 **Scoring**
 
 Each indicator is transformed into two signals:
-- **Z-score** — how far the current value is from its 52-week rolling mean (in standard deviations)
-- **Momentum** — difference between 4-week and 13-week rate-of-change, then z-scored
+- **Z-score** — how far the current value is from its {_zscore_desc}
+- **Momentum** — {_mom_desc}
 
 Each signal is sign-adjusted so that positive = risk-on contribution. The two signals are blended equally, then averaged across all 5 indicators to produce the **Composite Risk-On Score**.
 
 **Regime Classification**
 
-A **Gaussian Mixture Model (GMM)** with 3 components is fitted on the full 7-year history of the composite score. GMM learns the natural distribution of market regimes without requiring predefined thresholds — the three clusters are ranked by their mean and labelled **Risk-Off / Neutral / Risk-On**. The output is a probability for each state, not a hard classification.
+A **Gaussian Mixture Model (GMM)** with 3 components is fitted on the full {_gmm_desc} history of the composite score. GMM learns the natural distribution of market regimes without requiring predefined thresholds — the three clusters are ranked by their mean and labelled **Risk-Off / Neutral / Risk-On**. The output is a probability for each state, not a hard classification.
 
-*Data: Yahoo Finance · Weekly bars · 7-year lookback · Recalculated hourly*
+*Data: Yahoo Finance · {_footer}*
         """)
 
 
