@@ -2,8 +2,8 @@
 Cross-Market Regime Indicator
 ─────────────────────────────
 Two modes:
-  short — daily bars, 3-year fetch, z-score 252d, momentum 20d/60d, display 2024+
-  long  — weekly bars, 7-year fetch, z-score 52w,  momentum 4w/13w,  display 2020+
+  short — daily bars, 2-year fetch, z-score 60d, momentum 5d/20d, display 2024+
+  long  — weekly bars, 7-year fetch, z-score 52w, momentum 4w/13w,  display 2020+
 
 Methodology:
   1. Fetch price history for 5 macro indicators
@@ -42,10 +42,10 @@ _CONFIGS = {
     },
     "short": {
         "interval":      "1d",
-        "zscore_window": 252,
-        "mom_fast":      20,
-        "mom_slow":      60,
-        "lookback_years": 3,
+        "zscore_window": 60,
+        "mom_fast":      5,
+        "mom_slow":      20,
+        "lookback_years": 2,
         "disp_start":    "2024-01-01",
         "label":         "Short-term (Daily)",
     },
